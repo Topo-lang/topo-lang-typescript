@@ -1,0 +1,18 @@
+[project]
+name = "quickstart"
+
+[topo]
+root = "topo/processor.topo"
+
+[build]
+language = "typescript"
+sources = ["src"]
+output = "dist"
+
+[build.backendExtras]
+nodePath = "node"
+tsconfigPath = "./tsconfig.json"
+
+[completeness]
+ignore_constructors = true
+ignore_main = true

@@ -1,0 +1,20 @@
+[project]
+name = "typescript_e2e_visibility_transform"
+
+[topo]
+root = "topo/main.topo"
+
+[build]
+language = "typescript"
+sources = ["src"]
+output = "dist"
+output_type = "exe"
+
+[builder]
+mode = "dev"
+
+# Transform output mirrors src/ under dist/; `export` is stripped from
+# declarations marked `private` in main.topo. `@internal` JSDoc is
+# injected for declarations marked `internal`.
+[transforms.visibility]
+mode = "force"

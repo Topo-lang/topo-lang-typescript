@@ -1,0 +1,6 @@
+using int = std::typescript::number;
+
+namespace Outer::Inner {
+  public:
+    int compute(int x);
+}

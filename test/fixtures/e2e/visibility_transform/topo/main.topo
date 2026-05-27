@@ -1,0 +1,22 @@
+using int = std::typescript::number;
+using str = std::typescript::string;
+
+namespace app {
+  public:
+    int run(int seed);
+
+  private:
+    int helper(int x);
+
+  internal:
+    int diagnostic(int x);
+}
+
+// `format` and `noop` live in src/unrelated.ts with no .topo visibility
+// directive (everything in util is public). The transform must skip
+// unrelated.ts entirely — file-scoping regression coverage.
+namespace util {
+  public:
+    str format(int x);
+    void noop();
+}

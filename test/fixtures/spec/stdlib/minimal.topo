@@ -1,0 +1,21 @@
+// Plan 38 Batch 2.2 — TypeScript per-language fixture covering the 6
+// first-batch stdlib types. Pairs with src/process.ts (matching signatures).
+//
+// Mapping verified by V8Codegen:
+//   bool          -> boolean
+//   i64           -> bigint   (TS-specific: forced widening to BigInt)
+//   f64           -> number
+//   string        -> string
+//   optional<T>   -> T | null
+//   slice<T>      -> readonly T[]
+
+namespace stdlib_smoke {
+  public:
+    bool isReady();
+    i64 nextId();
+    f64 score(i64 id);
+    string label(i64 id);
+    optional<i64> parentOf(i64 id);
+    slice<f64> samples();
+    bool process(i64 id, string name, optional<bool> flag, slice<f64> values);
+}

@@ -1,0 +1,20 @@
+// Three-stage pipeline declaration. `pipeline` is the orchestrator; its
+// body lists which callees belong to which stage. StageAssertPass uses
+// these stage<N> markers to inject runtime ordering assertions into the
+// host `pipeline` TS function body.
+
+namespace app {
+  public:
+    void pipeline();
+    void fetch();
+    void parse();
+    void transform();
+    void emit();
+
+    fn pipeline {
+        stage<1> fetch();
+        stage<1> parse();
+        stage<2> transform();
+        stage<3> emit();
+    }
+}

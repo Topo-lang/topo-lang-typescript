@@ -1,0 +1,6 @@
+using int = std::typescript::number;
+
+namespace Renderer {
+  public:
+    external int render(int id);
+}

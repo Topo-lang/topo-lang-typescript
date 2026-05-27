@@ -1,0 +1,24 @@
+[project]
+name = "typescript_e2e_stage_assert_off"
+
+[topo]
+root = "topo/main.topo"
+
+[build]
+language = "typescript"
+sources = ["src"]
+output = "dist"
+output_type = "exe"
+
+[builder]
+mode = "dev"
+
+# Plan 44 §5 regression: with stage_assert OFF, StageAssertPass must NOT
+# run. No host body is rewritten, no `performance.mark` is injected, and
+# no `dist/` transform output is produced — the user's effective bundle is
+# the untouched source. This fixture is byte-for-byte identical to
+# `stage_assert_pass` except for `[transforms.stage_assert].mode`, so a
+# regression that injects instrumentation in off-mode (or even runs the
+# pass at all) is caught by comparing against the on-mode output.
+[transforms.stage_assert]
+mode = "off"

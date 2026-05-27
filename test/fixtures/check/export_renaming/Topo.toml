@@ -1,0 +1,9 @@
+[project]
+name = "typescript_export_renaming"
+
+[topo]
+root = "topo/main.topo"
+
+[build]
+language = "typescript"
+sources = ["src/*.ts"]

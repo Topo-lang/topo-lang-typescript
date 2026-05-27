@@ -1,0 +1,6 @@
+#!/bin/sh
+# topo-debug-typescript — Plan 44 Phase 2a CDP launcher.
+# Configured by CMake from topo-debug-typescript.in. The exec'd Node binary
+# is whichever interpreter CMake's `find_program(node)` selected at configure
+# time; the adapter script path is the one in the build tree.
+exec "@NODE_EXECUTABLE@" "@TOPO_DEBUG_TYPESCRIPT_ADAPTER@" "$@"

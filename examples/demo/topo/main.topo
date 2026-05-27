@@ -1,0 +1,31 @@
+// Topo TypeScript Demo — exercises all six check types.
+//
+// Completeness:    every declared function exists in TS source
+// Containment:     non-external functions avoid eval / fs / net / process
+// Visibility:      cross-namespace calls respect visibility declarations
+// Purity:          same-stage functions are free of module-level writes
+// Stage-isolation: no function calls into a later stage
+// Import-path:     std::import paths resolve to existing files
+
+std::import("helpers.ts", HelperConfig);
+
+using int = std::typescript::number;
+
+namespace app {
+  public:
+    void run();
+    int process(int x);
+
+  private:
+    int doubleValue(int x);
+
+  fn run {
+      stage<1> process(42);
+      stage<1> calc::compute(10);
+  }
+}
+
+namespace calc {
+  public:
+    int compute(int n);
+}

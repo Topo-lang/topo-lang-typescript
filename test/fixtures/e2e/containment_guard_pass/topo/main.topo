@@ -1,0 +1,14 @@
+using int = std::typescript::number;
+using str = std::typescript::string;
+
+namespace app {
+  public:
+    // `runCommand` is the declared boundary: marked `external`, it may
+    // freely use restricted APIs. ContainmentGuardPass MUST NOT touch its
+    // body — that's the regression coverage.
+    external int runCommand(int code);
+
+    // `guarded` is non-external: ContainmentGuardPass injects runtime
+    // throws around every restricted-API use in its body.
+    int guarded(int x);
+}

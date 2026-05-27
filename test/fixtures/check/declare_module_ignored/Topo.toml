@@ -1,0 +1,9 @@
+[project]
+name = "typescript_declare_module_ignored"
+
+[topo]
+root = "topo/main.topo"
+
+[build]
+language = "typescript"
+sources = ["src/*.ts"]

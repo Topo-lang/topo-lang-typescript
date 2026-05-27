@@ -1,0 +1,27 @@
+[project]
+name = "typescript_e2e_containment_guard_pass"
+
+[topo]
+root = "topo/main.topo"
+
+[build]
+language = "typescript"
+sources = ["src"]
+output = "dist"
+output_type = "exe"
+
+[builder]
+mode = "dev"
+
+# Transform output mirrors src/ under dist/. Non-external function bodies
+# get runtime guards inserted at every direct use of `eval` / `new Function`
+# / dynamic `import()` / `Reflect.*`. External functions are left untouched —
+# they ARE the declared boundary, so the guard would defeat its own contract
+# if applied there.
+[transforms.containment_guard]
+mode = "force"
+
+# The static containment check will warn that `guarded` uses restricted
+# APIs (eval / Function / Reflect / import). That's expected — those warnings
+# are exactly what motivates inserting a runtime guard. Warnings do not fail
+# the build (only errors do), so the default `auto` mode is correct here.

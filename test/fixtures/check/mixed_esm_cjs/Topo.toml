@@ -1,0 +1,9 @@
+[project]
+name = "typescript_mixed_esm_cjs"
+
+[topo]
+root = "topo/main.topo"
+
+[build]
+language = "typescript"
+sources = ["src/*.ts"]

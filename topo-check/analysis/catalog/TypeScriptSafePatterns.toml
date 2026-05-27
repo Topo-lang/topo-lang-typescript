@@ -1,0 +1,137 @@
+# topo-lang-typescript/topo-check/analysis/catalog/TypeScriptSafePatterns.toml
+# TypeScript / JavaScript safety whitelist -- community-maintained.
+# Non-external functions may only use listed patterns.
+# Unlisted = unsafe by default.
+#
+# Qualified names use "." separator to match the TypeScript symbol extractor
+# convention (e.g., "Array.isArray", "fs.readFileSync").
+
+[version]
+schema = 1
+
+# Safe ES / TypeScript language constructs (keywords, not callables).
+[constructs]
+safe = [
+    # Control flow
+    "if", "else", "for", "while", "do", "switch", "case", "default",
+    "break", "continue", "return",
+    "try", "catch", "throw", "finally",
+    # Declarations
+    "class", "interface", "enum", "type",
+    "extends", "implements", "super", "this",
+    "new", "instanceof", "typeof", "in", "of", "as", "satisfies",
+    "const", "let", "var", "function",
+    "namespace", "module", "declare", "export", "import",
+    # Modifiers
+    "readonly", "public", "private", "protected",
+    "static", "abstract", "async", "await", "yield",
+    "override",
+    # Literals / type keywords
+    "void", "undefined", "null", "true", "false",
+    "number", "string", "boolean", "object", "bigint", "symbol",
+    "any", "unknown", "never",
+]
+
+# Unsafe constructs (always indicate escape, regardless of surrounding context).
+unsafe = [
+    "eval",       # global eval
+    "Function",   # Function constructor
+]
+
+# Safe ES / DOM / Node built-in symbols.
+# Prefix matching: "Array.push" is safe because "Array" is listed.
+[stdlib]
+# Core ES primitives
+"Array" = "safe"
+"Object" = "safe"
+"Map" = "safe"
+"Set" = "safe"
+"WeakMap" = "safe"
+"WeakSet" = "safe"
+"WeakRef" = "safe"
+"FinalizationRegistry" = "safe"
+"Promise" = "safe"
+"Symbol" = "safe"
+"Date" = "safe"
+"Number" = "safe"
+"String" = "safe"
+"BigInt" = "safe"
+"Boolean" = "safe"
+"Math" = "safe"
+"JSON" = "safe"
+"Intl" = "safe"
+"RegExp" = "safe"
+
+# Errors
+"Error" = "safe"
+"TypeError" = "safe"
+"RangeError" = "safe"
+"SyntaxError" = "safe"
+"ReferenceError" = "safe"
+"EvalError" = "safe"
+"URIError" = "safe"
+"AggregateError" = "safe"
+
+# Typed arrays / buffers
+"ArrayBuffer" = "safe"
+"SharedArrayBuffer" = "safe"
+"DataView" = "safe"
+"Int8Array" = "safe"
+"Int16Array" = "safe"
+"Int32Array" = "safe"
+"Uint8Array" = "safe"
+"Uint8ClampedArray" = "safe"
+"Uint16Array" = "safe"
+"Uint32Array" = "safe"
+"BigInt64Array" = "safe"
+"BigUint64Array" = "safe"
+"Float32Array" = "safe"
+"Float64Array" = "safe"
+
+# Iteration protocol
+"Iterator" = "safe"
+"AsyncIterator" = "safe"
+
+# Global conversion helpers (bare names)
+"isNaN" = "safe"
+"isFinite" = "safe"
+"parseInt" = "safe"
+"parseFloat" = "safe"
+"encodeURI" = "safe"
+"encodeURIComponent" = "safe"
+"decodeURI" = "safe"
+"decodeURIComponent" = "safe"
+"structuredClone" = "safe"
+
+# Safe Node modules -- pure computation only.
+"path" = "safe"
+"util" = "safe"
+"events" = "safe"
+"buffer" = "safe"
+"querystring" = "safe"
+"url" = "safe"
+"string_decoder" = "safe"
+"assert" = "safe"
+"timers" = "safe"
+"timers.promises" = "safe"
+
+# Scheduling primitives (safe in pure-compute contexts)
+"setTimeout" = "safe"
+"setInterval" = "safe"
+"clearTimeout" = "safe"
+"clearInterval" = "safe"
+"queueMicrotask" = "safe"
+"setImmediate" = "safe"
+"clearImmediate" = "safe"
+
+# Type-guard / reflection built-ins that do NOT escape contexts
+"globalThis" = "safe"
+
+# --- Deliberately NOT whitelisted (handled by TypeScriptUnsafeCatalog) ---
+# fs, fs.promises, child_process, vm, net, http, https, http2, dgram, tls,
+# cluster, worker_threads, process, os, readline, repl, crypto (SubtleCrypto
+# is fine in browser; Node crypto contains random -> pragmatically allow via
+# future refinement once we have per-member policies)
+# Globals: eval, Function, Reflect, Proxy, Atomics
+# DOM: fetch, XMLHttpRequest, WebSocket, alert, prompt, confirm, document,
+#      window, localStorage, sessionStorage

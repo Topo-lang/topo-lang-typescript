@@ -1,0 +1,10 @@
+[project]
+name = "import_path_typescript_fail"
+
+[topo]
+root = "topo/main.topo"
+
+[build]
+language = "typescript"
+sources = ["src/*.ts"]
+include = ["src"]

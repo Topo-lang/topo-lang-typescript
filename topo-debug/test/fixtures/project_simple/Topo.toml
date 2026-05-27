@@ -1,0 +1,15 @@
+[project]
+name = "project_simple_typescript"
+
+[topo]
+root = "main.topo"
+
+[build]
+language = "typescript"
+sources = ["src"]
+output = "main"
+output_type = "exe"
+
+[completeness]
+ignore_constructors = true
+ignore_main = true

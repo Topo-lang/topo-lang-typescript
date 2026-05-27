@@ -1,0 +1,21 @@
+[project]
+name = "typescript_e2e_stage_assert_pass"
+
+[topo]
+root = "topo/main.topo"
+
+[build]
+language = "typescript"
+sources = ["src"]
+output = "dist"
+output_type = "exe"
+
+[builder]
+mode = "dev"
+
+# Transform output mirrors src/ under dist/. Each .topo fn with stage<N>
+# operations gets a monotonic stage counter injected into its host body,
+# plus an assertion wrapper around every direct callsite of a stage-mapped
+# callee. At runtime, calling stages out of declared order throws.
+[transforms.stage_assert]
+mode = "force"

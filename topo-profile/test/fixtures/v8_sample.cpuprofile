@@ -1,0 +1,92 @@
+{
+  "nodes": [
+    {
+      "id": 1,
+      "callFrame": {
+        "functionName": "(root)",
+        "scriptId": "0",
+        "url": "",
+        "lineNumber": -1,
+        "columnNumber": -1
+      },
+      "hitCount": 0,
+      "children": [2]
+    },
+    {
+      "id": 2,
+      "callFrame": {
+        "functionName": "main",
+        "scriptId": "42",
+        "url": "file:///workspace/app.js",
+        "lineNumber": 9,
+        "columnNumber": 0
+      },
+      "hitCount": 0,
+      "children": [3, 6]
+    },
+    {
+      "id": 3,
+      "callFrame": {
+        "functionName": "compute",
+        "scriptId": "42",
+        "url": "file:///workspace/app.js",
+        "lineNumber": 40,
+        "columnNumber": 2
+      },
+      "hitCount": 0,
+      "children": [4, 5]
+    },
+    {
+      "id": 4,
+      "callFrame": {
+        "functionName": "innerLoop",
+        "scriptId": "42",
+        "url": "file:///workspace/app.js",
+        "lineNumber": 60,
+        "columnNumber": 4
+      },
+      "hitCount": 8,
+      "children": []
+    },
+    {
+      "id": 5,
+      "callFrame": {
+        "functionName": "reduce",
+        "scriptId": "42",
+        "url": "file:///workspace/app.js",
+        "lineNumber": 80,
+        "columnNumber": 4
+      },
+      "hitCount": 5,
+      "children": []
+    },
+    {
+      "id": 6,
+      "callFrame": {
+        "functionName": "ioFlush",
+        "scriptId": "42",
+        "url": "file:///workspace/app.js",
+        "lineNumber": 100,
+        "columnNumber": 2
+      },
+      "hitCount": 0,
+      "children": [7]
+    },
+    {
+      "id": 7,
+      "callFrame": {
+        "functionName": "syscallWrite",
+        "scriptId": "42",
+        "url": "file:///workspace/app.js",
+        "lineNumber": 120,
+        "columnNumber": 4
+      },
+      "hitCount": 2,
+      "children": []
+    }
+  ],
+  "startTime": 1000,
+  "endTime": 21000,
+  "samples": [4, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 7, 7, 4, 4, 4, 5, 7],
+  "timeDeltas": [1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000]
+}

@@ -1,0 +1,6 @@
+std::import("helpers.ts", HelperConfig);
+
+namespace app {
+  public:
+    integer process(integer x);
+}

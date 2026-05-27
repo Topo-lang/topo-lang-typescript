@@ -1,0 +1,16 @@
+// Visibility violation: private function in `app` called from a different
+// namespace `other`.
+
+namespace app {
+  public:
+    void run();
+    void compute();
+
+  private:
+    void helper();
+}
+
+namespace other {
+  public:
+    void invoke();
+}

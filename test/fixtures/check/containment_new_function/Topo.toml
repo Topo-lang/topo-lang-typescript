@@ -1,0 +1,12 @@
+[project]
+name = "typescript_containment_new_function"
+
+[topo]
+root = "topo/main.topo"
+
+[build]
+language = "typescript"
+sources = ["src/*.ts"]
+
+[containment]
+mode = "force"

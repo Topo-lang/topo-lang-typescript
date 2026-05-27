@@ -1,0 +1,9 @@
+[project]
+name = "typescript_dangling_declaration"
+
+[topo]
+root = "topo/main.topo"
+
+[build]
+language = "typescript"
+sources = ["src/*.ts"]

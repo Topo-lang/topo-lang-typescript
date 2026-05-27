@@ -1,0 +1,7 @@
+using int = std::typescript::number;
+
+namespace app {
+  public:
+    int add(int a, int b);
+    int multiply(int a, int b);
+}

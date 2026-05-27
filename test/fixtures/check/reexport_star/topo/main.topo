@@ -1,0 +1,6 @@
+using int = std::typescript::number;
+
+namespace app {
+  public:
+    int helper(int x);
+}

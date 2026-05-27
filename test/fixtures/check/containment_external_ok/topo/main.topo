@@ -1,0 +1,7 @@
+using int = std::typescript::number;
+
+namespace app {
+  public:
+    external int runCommand(int code);
+    int process(int x);
+}

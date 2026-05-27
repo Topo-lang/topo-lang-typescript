@@ -1,0 +1,9 @@
+[project]
+name = "typescript_nested_namespace"
+
+[topo]
+root = "topo/main.topo"
+
+[build]
+language = "typescript"
+sources = ["src/*.ts"]

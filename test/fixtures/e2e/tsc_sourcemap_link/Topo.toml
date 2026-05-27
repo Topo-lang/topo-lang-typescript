@@ -1,0 +1,19 @@
+[project]
+name = "typescript_e2e_tsc_sourcemap_link"
+
+[topo]
+root = "topo/main.topo"
+
+[build]
+language = "typescript"
+sources = ["src"]
+output = "dist"
+output_type = "exe"
+
+[builder]
+mode = "dev"
+
+# No transforms. The TypeScript backend is check-only; the user runs tsc
+# and the resulting dist/*.js + dist/*.js.map are committed here. After
+# checks pass, topo-build-typescript scans `dist/` and emits the
+# tsc_sourcemap_link sidecar recording the .ts ↔ .js ↔ .js.map links.

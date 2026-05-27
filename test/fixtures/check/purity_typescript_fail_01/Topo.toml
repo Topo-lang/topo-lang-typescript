@@ -1,0 +1,12 @@
+[project]
+name = "purity_typescript_fail_01"
+
+[topo]
+root = "topo/main.topo"
+
+[build]
+language = "typescript"
+sources = ["src/*.ts"]
+
+[purity]
+mode = "force"

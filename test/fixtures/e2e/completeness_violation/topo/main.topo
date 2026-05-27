@@ -1,0 +1,6 @@
+using str = std::typescript::string;
+
+namespace app {
+  public:
+    str greet(str name);
+}

@@ -1,0 +1,14 @@
+// Sequential stages: `init` (stage<1>) and `process` (stage<2>) do not
+// call each other at the host level. Stage ordering is respected.
+
+namespace app {
+  public:
+    void run();
+    void init();
+    void process();
+
+    fn run {
+        stage<1> init();
+        stage<2> process();
+    }
+}

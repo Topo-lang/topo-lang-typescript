@@ -1,0 +1,35 @@
+[project]
+name = "topo-ts-demo"
+
+[topo]
+root = "topo/main.topo"
+
+[build]
+language = "typescript"
+sources = ["src"]
+include = ["src"]
+output = "dist"
+output_type = "exe"
+
+[completeness]
+ignore_constructors = true
+ignore_main = true
+
+[containment]
+mode = "force"
+
+[visibility]
+mode = "force"
+
+[purity]
+mode = "force"
+
+[stage_isolation]
+mode = "force"
+
+# VisibilityPass — rewrite host TypeScript to enforce .topo visibility.
+# Output mirrors `src/` under `dist/`; `export` is stripped from declarations
+# the .topo file marks `private`, and `@internal` JSDoc is injected for
+# declarations marked `internal`.
+[transforms.visibility]
+mode = "force"

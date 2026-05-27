@@ -1,0 +1,12 @@
+[project]
+name = "visibility_typescript_fail_02"
+
+[topo]
+root = "topo/main.topo"
+
+[build]
+language = "typescript"
+sources = ["src/*.ts"]
+
+[visibility]
+mode = "force"

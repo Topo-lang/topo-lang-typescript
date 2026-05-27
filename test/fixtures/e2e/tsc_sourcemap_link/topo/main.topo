@@ -1,0 +1,7 @@
+using int = std::typescript::number;
+
+namespace calc {
+  public:
+    int add(int a, int b);
+    int compute(int n);
+}

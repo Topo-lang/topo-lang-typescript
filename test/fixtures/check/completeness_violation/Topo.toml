@@ -1,0 +1,9 @@
+[project]
+name = "typescript_completeness_violation"
+
+[topo]
+root = "topo/main.topo"
+
+[build]
+language = "typescript"
+sources = ["src/*.ts"]

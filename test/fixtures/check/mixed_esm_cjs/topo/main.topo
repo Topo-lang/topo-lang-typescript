@@ -1,0 +1,8 @@
+using int = std::typescript::number;
+
+namespace app {
+  public:
+    int calculate(int x);
+    int transform(int y);
+    int doThing(int z);
+}

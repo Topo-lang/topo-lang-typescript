@@ -1,0 +1,41 @@
+// TypeScript counterpart of topo-lang-cpp/topo-debug/test/fixtures/project_simple/main.topo.
+//
+// Declares a `Buf` debug entry with literal-bounded views `first_half` and
+// `second_half` over the host-side `data` (an Int32Array of length 8). The
+// matching main.mjs defines the typed array as
+// [1,2,3,4,10,20,30,40] inside `main()` and breaks on a sentinel line so
+// `topo debug query 'sum(first_half)'` sees 1+2+3+4 = 10 and
+// `sum(second_half)` sees 10+20+30+40 = 100.
+//
+// Validates the full success path for the TypeScript check-only backend:
+// `topo build` (via topo-build-typescript) runs the completeness check over
+// `src/main.ts` and `topo-build` itself writes main.topo-dbg.json (the view
+// registry) next to the configured `[build] output`. The adapter's `--target`
+// is a separate `main.mjs` — Node 26 strips types from `.ts` to run them,
+// but V8's Debugger reports the original `.ts` URL through CDP and our
+// `setBreakpointByUrl` lookup picks the URL Node actually loaded. Keeping
+// runtime in `.mjs` (the established Phase 2a contract) sidesteps that
+// mismatch entirely: topo-build sees the `.ts`, the adapter drives the `.mjs`.
+
+using Int = std::typescript::number;
+
+namespace app {
+  public:
+    type Buf {
+      public:
+        Int data;
+    }
+}
+
+debug Buf {
+  view first_half from data[0..4];
+  view second_half from data[4..8];
+  // Plan 45 Phase 1 — `{ <query-expr> }` placeholders are evaluated by the
+  // summary renderer against the breakpoint's frame. At the sentinel line
+  // in main.mjs:
+  //   sum(data)        = 110  (1+2+3+4 + 10+20+30+40)
+  //   sum(first_half)  = 10
+  //   sum(second_half) = 100
+  //   count(data)      = 8
+  summary "data sum={sum(data)} (halves {sum(first_half)} + {sum(second_half)}; count={count(data)})";
+}

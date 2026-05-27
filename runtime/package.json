@@ -1,0 +1,12 @@
+{
+  "name": "topo-lang-typescript-runtime",
+  "version": "0.0.0",
+  "private": true,
+  "description": "TypeScript-host runtime for topo-app (config + handler/flow framework). Placeholder package: no npm publish yet; scripts pin the verified-green node:test invocations.",
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/test_config_model.test.mjs test/test_config_rw.test.mjs test/test_config_tags_perm.test.mjs test/test_config_inline_internal.test.mjs test/test_config_browse.test.mjs",
+    "test:config": "node --test test/test_config_model.test.mjs test/test_config_rw.test.mjs test/test_config_tags_perm.test.mjs test/test_config_inline_internal.test.mjs test/test_config_browse.test.mjs",
+    "test:slice": "node --test test/test_vertical_slice.test.mjs"
+  }
+}

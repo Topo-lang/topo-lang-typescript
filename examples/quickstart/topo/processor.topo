@@ -1,0 +1,13 @@
+// Minimal TypeScript quickstart declarations.
+
+using int = std::typescript::number;
+using str = std::typescript::string;
+using bool = std::typescript::boolean;
+
+namespace processor {
+  public:
+    bool run(int order_id);
+
+  private:
+    bool verify(int order_id);
+}

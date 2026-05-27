@@ -1,0 +1,28 @@
+@PACKAGE_INIT@
+
+# topo-lang-typescript CMake package config.
+#
+# Consumers do:
+#     find_package(topo-lang-typescript CONFIG REQUIRED)
+#     target_link_libraries(<tgt> PRIVATE topo::lang-typescript::TopoTypeScriptPlugin)
+#
+# topo-lang-typescript's libs PUBLIC-depend on topo-core (frontend / check /
+# transpile / lsp bridge), topo-lang (plugin framework), and topo-v8 (V8-family
+# shared infrastructure: TsServerBridge, V8Codegen, AST extract primitives).
+
+include(CMakeFindDependencyMacro)
+
+if(NOT TARGET topo::core::TopoCheck)
+    find_dependency(topo-core CONFIG)
+endif()
+if(NOT TARGET topo::lang::TopoLang)
+    find_dependency(topo-lang CONFIG)
+endif()
+if(NOT TARGET topo::v8::Topov8Placeholder)
+    find_dependency(topo-v8 CONFIG)
+endif()
+find_dependency(nlohmann_json CONFIG)
+
+include("${CMAKE_CURRENT_LIST_DIR}/topo-lang-typescriptTargets.cmake")
+
+check_required_components(topo-lang-typescript)

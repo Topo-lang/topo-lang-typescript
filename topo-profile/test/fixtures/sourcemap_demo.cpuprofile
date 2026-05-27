@@ -1,0 +1,56 @@
+{
+  "nodes": [
+    {
+      "id": 1,
+      "callFrame": {
+        "functionName": "(root)",
+        "scriptId": "0",
+        "url": "",
+        "lineNumber": -1,
+        "columnNumber": -1
+      },
+      "hitCount": 0,
+      "children": [2]
+    },
+    {
+      "id": 2,
+      "callFrame": {
+        "functionName": "compute",
+        "scriptId": "7",
+        "url": "file:///workspace/sourcemap_demo/index.js",
+        "lineNumber": 6,
+        "columnNumber": 0
+      },
+      "hitCount": 0,
+      "children": [3, 4]
+    },
+    {
+      "id": 3,
+      "callFrame": {
+        "functionName": "mul",
+        "scriptId": "7",
+        "url": "file:///workspace/sourcemap_demo/index.js",
+        "lineNumber": 3,
+        "columnNumber": 0
+      },
+      "hitCount": 7,
+      "children": []
+    },
+    {
+      "id": 4,
+      "callFrame": {
+        "functionName": "add",
+        "scriptId": "7",
+        "url": "file:///workspace/sourcemap_demo/index.js",
+        "lineNumber": 0,
+        "columnNumber": 0
+      },
+      "hitCount": 4,
+      "children": []
+    }
+  ],
+  "startTime": 1000,
+  "endTime": 12000,
+  "samples": [3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4],
+  "timeDeltas": [1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000]
+}

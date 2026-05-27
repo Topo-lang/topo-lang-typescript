@@ -1,0 +1,8 @@
+using int = std::typescript::number;
+using str = std::typescript::string;
+
+namespace app {
+  public:
+    str greet(str name);
+    int add(int a, int b);
+}

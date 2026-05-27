@@ -1,0 +1,24 @@
+#!/bin/sh
+# Launcher shim so the extractor is resolvable as the bare executable name
+# `topo-extract-typescript` (TranspileDriver spawns it via PATH, the same way
+# it spawns the compiled topo-extract-cpp / topo-extract-rust binaries).
+#
+# Two valid layouts:
+#   1. Staged beside the binary: this shim sits in <binDir>/ and the tool body
+#      (with its npm node_modules) is in <binDir>/topo-extract-typescript-tool/.
+#   2. In-tree / inside the tool dir: index.mjs is right next to this shim.
+# Resolve our own real directory through any symlinks, then pick whichever
+# index.mjs exists.
+self=$0
+while [ -h "$self" ]; do
+    link=$(readlink "$self")
+    case $link in
+        /*) self=$link ;;
+        *)  self=$(dirname "$self")/$link ;;
+    esac
+done
+dir=$(cd "$(dirname "$self")" && pwd)
+if [ -f "$dir/topo-extract-typescript-tool/index.mjs" ]; then
+    exec node "$dir/topo-extract-typescript-tool/index.mjs" "$@"
+fi
+exec node "$dir/index.mjs" "$@"
