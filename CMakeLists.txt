@@ -40,9 +40,18 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(TopoLangTypeScriptCompilerFlags)
 
 # ── Upstream Topo packages ────────────────────────────
-find_package(topo-core CONFIG REQUIRED)
-find_package(topo-lang CONFIG REQUIRED)
-find_package(topo-v8   CONFIG REQUIRED)
+# Guards make this CMakeLists usable both standalone (find_package finds the
+# installed config package) and as an add_subdirectory inside the meta-repo
+# unified build (the targets already exist, so we skip the find_package).
+if(NOT TARGET topo::core::TopoBasic)
+    find_package(topo-core CONFIG REQUIRED)
+endif()
+if(NOT TARGET topo::lang::TopoLang)
+    find_package(topo-lang CONFIG REQUIRED)
+endif()
+if(NOT TARGET topo::v8::Topov8Placeholder)
+    find_package(topo-v8 CONFIG REQUIRED)
+endif()
 
 # ── External dependencies ─────────────────────────────
 find_package(nlohmann_json CONFIG REQUIRED)
@@ -103,7 +112,7 @@ endif()
 
 # ── Tests ─────────────────────────────────────────────
 option(TOPO_LANG_TYPESCRIPT_BUILD_TESTS "Build topo-lang-typescript tests" ON)
-if(TOPO_LANG_TYPESCRIPT_BUILD_TESTS AND PROJECT_IS_TOP_LEVEL)
+if(TOPO_LANG_TYPESCRIPT_BUILD_TESTS AND (PROJECT_IS_TOP_LEVEL OR TOPO_META_DRIVING_TESTS))
     enable_testing()
     include(FetchContent)
     FetchContent_Declare(googletest

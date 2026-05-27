@@ -40,6 +40,11 @@ function(topo_set_llvm_flags target)
     topo_set_compiler_flags(${target})
 endfunction()
 
-function(topo_apply_std_pch target)
-    # PCH stub — no-op in standalone topo-lang-typescript.
-endfunction()
+if(NOT COMMAND topo_apply_std_pch)
+    function(topo_apply_std_pch target)
+        # PCH stub — no-op in standalone topo-lang-typescript.
+        # Guarded so the meta-repo unified build (which defines the real
+        # topo_apply_std_pch) wins over this stub when this CMakeLists is
+        # included via add_subdirectory.
+    endfunction()
+endif()

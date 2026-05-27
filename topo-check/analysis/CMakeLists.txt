@@ -41,7 +41,10 @@ target_link_libraries(TopoTypeScriptAnalysis
 set(_TOPO_LANG_TYPESCRIPT_SHIM "${CMAKE_BINARY_DIR}/topo-source-shim")
 file(MAKE_DIRECTORY "${_TOPO_LANG_TYPESCRIPT_SHIM}")
 if(NOT EXISTS "${_TOPO_LANG_TYPESCRIPT_SHIM}/topo-lang-typescript")
-    file(CREATE_LINK "${CMAKE_SOURCE_DIR}"
+    # Use PROJECT_SOURCE_DIR (this project's root) instead of CMAKE_SOURCE_DIR
+    # so the shim resolves correctly when this CMakeLists is included via
+    # add_subdirectory from a parent project (meta-repo unified build).
+    file(CREATE_LINK "${PROJECT_SOURCE_DIR}"
         "${_TOPO_LANG_TYPESCRIPT_SHIM}/topo-lang-typescript" SYMBOLIC)
 endif()
 target_compile_definitions(TopoTypeScriptAnalysis PRIVATE
