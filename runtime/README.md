@@ -4,8 +4,9 @@ The TypeScript-host runtime for topo-app. Pure-language work (no LLVM,
 no project CMake build), at behaviour parity with the Python reference
 runtime. Two slices:
 
-1. the **product runtime configuration** system, against the contract
-   `.aidesk/base/60-spec/topo-lang-python/product-config.md`;
+1. the **product runtime configuration** system, against the Python
+   reference's product-config contract (envvar/file resolution, typed
+   schema, validation);
 2. the **handler / flow framework** — register idiomatic TypeScript
    handlers and flows, emit a round-trippable `.topo` contract, and run
    the existing `topo` / `topo-check` against it with zero hand-written
