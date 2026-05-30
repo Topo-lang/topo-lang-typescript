@@ -1,4 +1,4 @@
-// Plan 38 Batch 2.2 — TypeScript per-language fixture covering the 6
+// TypeScript per-language fixture covering the 6
 // first-batch stdlib types. Pairs with src/process.ts (matching signatures).
 //
 // Mapping verified by V8Codegen:

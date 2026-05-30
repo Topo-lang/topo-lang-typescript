@@ -2,8 +2,7 @@
 //
 // Two host Int32Arrays in scope (`a`, `b`, both length 4) — the summary
 // template references both, so resolving it exercises the multi-var adapter
-// protocol (Plan 41 Phase 4) and the batched-summary single-spawn path
-// (Plan 45 §1).
+// protocol and the batched-summary single-spawn path.
 //
 // Validates the full topo-build-typescript flow + CDP multi-var queries:
 // `topo build` runs completeness check over `src/main.ts` + writes

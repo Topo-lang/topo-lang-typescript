@@ -13,7 +13,7 @@ output_type = "exe"
 [builder]
 mode = "dev"
 
-# Plan 44 §5 regression: with stage_assert OFF, StageAssertPass must NOT
+# Regression: with stage_assert OFF, StageAssertPass must NOT
 # run. No host body is rewritten, no `performance.mark` is injected, and
 # no `dist/` transform output is produced — the user's effective bundle is
 # the untouched source. This fixture is byte-for-byte identical to

@@ -1,3 +1,3 @@
 @echo off
-REM topo-debug-typescript launcher (Windows) — Plan 44 Phase 2a CDP adapter.
+REM topo-debug-typescript launcher (Windows) — CDP adapter.
 "@NODE_EXECUTABLE@" "@TOPO_DEBUG_TYPESCRIPT_ADAPTER@" %*
