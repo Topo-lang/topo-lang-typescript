@@ -417,8 +417,7 @@ test("symbols mode: declare ambient declarations are skipped", () => {
 test("symbols mode: interface and type alias map to dedicated kinds", () => {
     // Interface / type alias now lift to their own discriminator kinds
     // (`interface` / `typealias`) rather than the previous shared
-    // `class` fallback — see audit issue
-    // typescript-symbol-extractor-lossy-kind-mapping. The
+    // `class` fallback, which lost that kind distinction. The
     // CompletenessCheck side routes both through the same
     // type-symbol lookup path, so `.topo` `class Foo` continues to
     // match a TS `interface Foo`.

@@ -335,7 +335,7 @@ export function iterProvenance(resolved) {
 /**
  * A config value whose type has no stdlib bridge was offered. The
  * message names the offending key and points at the
- * stdlib-bridging-types roadmap gap so the rejection is actionable
+ * stdlib-bridging-types gap so the rejection is actionable
  * (e.g. a TOML datetime: `time_*` is not yet a stdlib type, so
  * accepting it would mean a value with no contract). Silently keeping
  * such a value would leave the product reading something nothing in the
@@ -361,19 +361,20 @@ export class UnbridgedValueError extends TypeError {
  *
  * `Date` is the JavaScript correspondence of Python's
  * `date`/`time`/`datetime` (the only datetime-like value a TOML decoder
- * yields) and is rejected the same way, naming roadmap 08. Aggregates
+ * yields) and is rejected the same way, naming the stdlib-bridging-types
+ * gap. Aggregates
  * are validated element-wise so a Date smuggled inside an array or
  * record is caught, not just a top-level one.
  */
 export function stdlibTypeOf(value) {
   // date/time/datetime have no stdlib correspondence — see the
-  // stdlib-bridging-types roadmap (time_* has no native host type and is
+  // stdlib-bridging-types gap (time_* has no native host type and is
   // deferred). Reject rather than invent an ad-hoc contract.
   if (value instanceof Date) {
     throw new UnbridgedValueError(
       "value of type 'Date' has no stdlib bridge type — TOML date/time " +
-        "maps to the not-yet-implemented time_* family (see roadmap 08, " +
-        "stdlib-bridging-types: the time_*/uuid/decimal128 gap). " +
+        "maps to the not-yet-implemented time_* family (see the " +
+        "stdlib-bridging-types gap: the time_*/uuid/decimal128 gap). " +
         "Accepting it would store a value with no schema contract; use " +
         "a bridged scalar instead.",
     );
@@ -386,7 +387,7 @@ export function stdlibTypeOf(value) {
       // contract — refuse rather than silently classify them as float.
       throw new UnbridgedValueError(
         `value '${value}' is a non-finite number with no stdlib bridge ` +
-          "type (see roadmap 08, stdlib-bridging-types). Only finite " +
+          "type (see the stdlib-bridging-types gap). Only finite " +
           "integer / float values have a schema contract.",
       );
     }
@@ -415,8 +416,8 @@ export function stdlibTypeOf(value) {
         ? "undefined"
         : (value.constructor && value.constructor.name) || t;
   throw new UnbridgedValueError(
-    `value of type '${shown}' has no stdlib bridge type (see roadmap ` +
-      "08, stdlib-bridging-types). Only string / integer / float / bool " +
+    `value of type '${shown}' has no stdlib bridge type (see the ` +
+      "stdlib-bridging-types gap). Only string / integer / float / bool " +
       "/ array / table values have a schema contract; refusing to store " +
       "an uncontracted value.",
   );

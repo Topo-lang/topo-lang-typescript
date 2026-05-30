@@ -4,9 +4,9 @@
 # AST extractor + safe-catalog + V8 codegen tests run unconditionally;
 # checker-e2e and functional-e2e suites require TopoCheckRunner /
 # the `topo-build` CLI / E2eHarness.cpp — none of which are exported by
-# topo-core today (split-topo-core-deferred-cleanup) — so they are
-# skipped in standalone mode and continue to run from the monorepo /
-# topo-cli once that repo lifts.
+# topo-core today (deferred to a later cleanup of the topo-core split) —
+# so they are skipped in standalone mode and continue to run from the
+# monorepo / topo-cli once that repo lifts.
 
 # MinGW on GHA: cached upstream topo-install may have been linked against
 # a different libstdc++/libgcc ABI than C:\mingw64\bin\ currently provides,
@@ -38,9 +38,9 @@ target_compile_definitions(topo-lang-typescript-tests PRIVATE
 )
 topo_set_compiler_flags(topo-lang-typescript-tests)
 # DISCOVERY_TIMEOUT 30: the 5s default aborts a clean build when post-link
-# discovery competes with concurrent link jobs (issue
-# topo-lsp-server-tests-gtest-discovery-timeout-flake). TIMEOUT is the
-# per-test run cap; DISCOVERY_TIMEOUT is the enumeration cap.
+# test enumeration competes with concurrent link jobs and times out
+# flakily. TIMEOUT is the per-test run cap; DISCOVERY_TIMEOUT is the
+# enumeration cap.
 gtest_discover_tests(topo-lang-typescript-tests
     DISCOVERY_TIMEOUT 30
     PROPERTIES LABELS "toolchain;typescript;lang-typescript" TIMEOUT 60)
@@ -74,8 +74,9 @@ endif()
 
 # --- Checker E2E tests (skipped in standalone) ---
 # Requires TopoCheckRunner (owned by topo-cli, not exported by topo-core
-# today — see split-topo-core-deferred-cleanup). Skipped here; continues
-# to run from the monorepo / from topo-cli once that repo lifts.
+# today — deferred to a later cleanup of the topo-core split). Skipped
+# here; continues to run from the monorepo / from topo-cli once that
+# repo lifts.
 message(STATUS "topo-lang-typescript tests: checker-e2e suite is gated off "
                "in standalone mode (TopoCheckRunner not exported by topo-core).")
 

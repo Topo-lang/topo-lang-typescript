@@ -76,7 +76,7 @@ describe("T1 Skeleton — graph is enumerable", () => {
   });
 
   it("source handler has no input", () => {
-    // A no-input handler is a legal source handler (spec §7a).
+    // A no-input handler is a legal source handler.
     const app = new App("src");
     app.handler(
       function seed() {

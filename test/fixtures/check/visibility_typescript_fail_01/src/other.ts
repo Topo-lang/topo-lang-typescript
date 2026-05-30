@@ -6,8 +6,8 @@
 // rewrites the bare `helper()` call back to `app::helper` so
 // VisibilityCheck can match it against the .topo `app::helper` private
 // declaration. (Previously this fixture used `import * as app` as a
-// workaround; that was tracked by issue
-// typescript-destructured-import-resolution.)
+// workaround because the destructured-import form was not yet resolved
+// back to its declaring namespace.)
 
 import { helper } from "./app";
 

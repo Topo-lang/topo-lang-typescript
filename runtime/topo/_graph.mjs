@@ -66,7 +66,7 @@ export class Handler {
 
   signature() {
     // The single input parameter is conventionally named `in` to match
-    // spec §7a's HandlerInput form; a source handler has no parameter.
+    // the handler-input form; a source handler has no parameter.
     const param = this.inType === null ? "" : `${this.inType.topo()} in`;
     return `handler ${this.name}(${param}) -> ${this.outType.topo()};`;
   }
@@ -107,7 +107,7 @@ export class Flow {
  * The whole program: namespace, handlers, one flow.
  *
  * A single namespace + single flow keeps the slice minimal while still
- * exercising every mapping rule the proposal commits to.
+ * exercising every mapping rule topo-app commits to.
  */
 export class Graph {
   /**

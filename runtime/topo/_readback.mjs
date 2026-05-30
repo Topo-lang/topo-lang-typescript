@@ -1,7 +1,7 @@
 /**
  * Read .topo back into a Graph by parsing it with the real toolchain.
  *
- * Round-trip fidelity is the proposal's decisive constraint. To prove it
+ * Round-trip fidelity is the topo-app design's decisive constraint. To prove it
  * honestly, read-back must go through the *actual* Topo parser, not a
  * TypeScript re-implementation of the grammar (which could agree with
  * the emitter by accident). We invoke `topo --ast-dump` and reconstruct
@@ -41,7 +41,7 @@ function _parseType(spec) {
   if (m) {
     // Split top-level "name: type" pairs. Record fields here are
     // scalar-typed (the slice's record nesting is one level, matching
-    // the proposal's order example), so a comma split is sufficient.
+    // the topo-app order example), so a comma split is sufficient.
     const fields = m[1].split(",").map((part) => {
       const idx = part.indexOf(":");
       const name = part.slice(0, idx).trim();

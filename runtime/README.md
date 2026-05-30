@@ -52,9 +52,7 @@ registered handler is returned unchanged and stays an ordinary,
 independently callable function.
 
 Run the framework parity suite (explicit file — `node --test <dir>`
-directory-discovery misfires on Node v26, tracked issue
-`typescript-config-node-test-directory-discovery`; use the pinned
-script):
+directory-discovery misfires on Node v26; use the pinned script):
 
 ```
 # from topo-lang-typescript/runtime/
@@ -93,7 +91,7 @@ Python writer covers). It is intentionally not a full TOML 1.0
 implementation. Keeping the reader and writer a matched pair makes
 encode∘decode the identity for that vocabulary — which is precisely the
 round-trip constraint. A TOML datetime is decoded to a JS `Date` so the
-model's stdlib-contract guard rejects it (naming the roadmap-08 gap),
+model's stdlib-contract guard rejects it (naming the stdlib-bridging-types gap),
 parity with the Python flow where `tomllib` yields a datetime the model
 then rejects.
 
@@ -117,9 +115,8 @@ the five Python `test_config_*.py` files one-for-one.
 > v26.0.0: it reports `tests 1 / fail 1` (`test failed`) even though
 > every file is green when passed explicitly, and each file passes
 > individually. This is a Node test-runner directory-pattern bug, not a
-> parity defect (tracked issue
-> `typescript-config-node-test-directory-discovery`). Always run with
-> the **explicit file list**, which is pinned in `package.json`:
+> parity defect. Always run with the **explicit file list**, which is
+> pinned in `package.json`:
 
 ```
 # from topo-lang-typescript/runtime/ — the pinned, verified-green path:

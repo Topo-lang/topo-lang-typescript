@@ -46,7 +46,7 @@ import {
 // decoded to a JS `Date` so the model's stdlib-contract guard rejects
 // it the same way the Python bridge lets `tomllib` produce a datetime
 // the model then rejects (parity: the gap surfaces at validate time,
-// naming roadmap 08, not silently at parse time).
+// naming the stdlib-bridging-types gap, not silently at parse time).
 
 function _parseTomlValue(raw) {
   const text = raw.trim();

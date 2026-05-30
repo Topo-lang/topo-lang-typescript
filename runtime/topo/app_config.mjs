@@ -1,6 +1,6 @@
 /**
  * The single unified configuration entry for a topo-app *logic graph*
- * (the proposal's "snapshot 与 emit 的 .topo 是同一逻辑结构两视图").
+ * (the topo-app design's "snapshot 与 emit 的 .topo 是同一逻辑结构两视图").
  *
  * `snapshot()` and `emitTopo()` are two views of the *same* logic
  * structure: the snapshot is the human/agent overview, the .topo is the
@@ -84,7 +84,7 @@ export class Config {
 }
 
 /**
- * The one `topo.config(app)` entry the proposal names.
+ * The one `topo.config(app)` entry the topo-app design names.
  * @param {import("./app.mjs").App} app
  * @returns {Config}
  */

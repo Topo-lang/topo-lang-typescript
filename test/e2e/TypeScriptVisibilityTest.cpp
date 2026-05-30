@@ -35,8 +35,8 @@ TEST(TypeScriptVisibility, Fail_CrossModulePrivate) {
 TEST(TypeScriptVisibility, Fail_CrossModulePrivate_AliasedDestructuredImport) {
     // `import { helper as h }` followed by a bare `h()` call must still
     // resolve back to `app::helper` so VisibilityCheck flags the cross-
-    // namespace private call. Regression for issue
-    // typescript-destructured-import-resolution.
+    // namespace private call. Regression: aliased destructured imports
+    // must resolve back to their declaring namespace.
     CheckConfig cfg;
     cfg.projectDir = fixtureDir("visibility_typescript_fail_02");
     cfg.checkName = "visibility";

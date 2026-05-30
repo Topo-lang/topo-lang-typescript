@@ -1,7 +1,7 @@
 /**
  * topo-app TypeScript surface: idiomatic registration, not a macro DSL.
  *
- * The proposal fixes the philosophy (Functor model + the five
+ * The topo-app design fixes the philosophy (Functor model + the five
  * declaration principles) and leaves each topo-lang to project it onto
  * its own idioms. The Python projection is a decorator that reflects
  * `__annotations__`. TypeScript erases types at runtime, so there is
@@ -24,7 +24,7 @@ import { reflectSignature } from "./_reflect.mjs";
  * A topo-app program: the in-memory logic graph plus the callables.
  *
  * One App owns one namespace and (for this slice) one flow — enough to
- * exercise every proposal mapping rule without productionizing.
+ * exercise every topo-app mapping rule without productionizing.
  */
 export class App {
   /** @param {string} namespace */
@@ -73,7 +73,7 @@ export class App {
    * Declare a linear logic chain: `flow("p", a, b, c)` becomes edges
    * a->b->c->void. A `parallel(...)` member fans in/out from the same
    * neighbours (same-source / same-sink == same-stage parallel
-   * candidates, per the proposal's mapping table).
+   * candidates, per the topo-app mapping table).
    *
    * Stages are the registered functions themselves (or `parallel(...)`
    * groups of them); the name is resolved from the function reference,
@@ -140,7 +140,7 @@ class _Parallel {
 
 /**
  * Independent units on the same input == same-stage parallel candidates
- * (proposal mapping rule). Purity of these is enforced by core
+ * (topo-app mapping rule). Purity of these is enforced by core
  * PurityCheck after emission, not self-asserted here.
  *
  * @param {...Function} members

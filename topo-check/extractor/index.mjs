@@ -55,9 +55,9 @@ class FnLift {
         this.degraded = true;
     }
     fidelity() {
-        // Cross-extractor convention (see transpile-model.md, the
-        // Fidelity table): a SOURCE extractor that emits an approximate
-        // shape because the source feature is outside the MVP uses
+        // Cross-extractor Fidelity convention: a SOURCE extractor that
+        // emits an approximate shape because the source feature is
+        // outside the MVP uses
         // "inferred". `recovered` is reserved for decompilers
         // (LLVMLifter / JVMLifter), where the input is a genuinely lossy
         // form (IR / bytecode). Earlier the TS extractor used "recovered"

@@ -92,14 +92,14 @@ describe("ValueTypeContract", () => {
     assert.deepEqual(store.get("rec"), { id: 1, amount: 2.0 });
   });
 
-  it("Date rejected, message points to the roadmap gap", () => {
+  it("Date rejected, message points to the stdlib-bridging gap", () => {
     const store = new ConfigStore();
     assert.throws(
       () => store.set("event.at", new Date("2026-05-16T12:00:00Z")),
       (e) =>
         e instanceof UnbridgedValueError &&
         e.message.includes("event.at") && // locates the key
-        e.message.includes("roadmap 08") && // names the gap source
+        e.message.includes("stdlib-bridging-types") && // names the gap source
         e.message.includes("time_*"), // names the missing family
     );
   });
@@ -120,7 +120,7 @@ describe("ValueTypeContract", () => {
       (e) =>
         e instanceof UnbridgedValueError &&
         e.message.includes("weird.value") &&
-        e.message.includes("roadmap 08"),
+        e.message.includes("stdlib-bridging-types"),
     );
   });
 

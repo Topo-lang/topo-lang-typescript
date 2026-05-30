@@ -4,7 +4,7 @@
  *
  * Why a schema descriptor and not annotation reflection
  * -----------------------------------------------------
- * The Python projection of the proposal reads `__annotations__`: In/Out
+ * The Python projection of topo-app reads `__annotations__`: In/Out
  * live in the function signature, never in hand-written `.topo`. A
  * TypeScript function's parameter and return *types erase entirely* at
  * runtime — there is nothing for a runtime framework to reflect. So the
