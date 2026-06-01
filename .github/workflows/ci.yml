@@ -138,11 +138,15 @@ jobs:
           # contract-pass transforms; otherwise skip (cache restore doesn't
           # include the tools/ tree).
           #
-          # Windows is skipped for now: the chained POST_BUILD `npm.cmd
-          # install` step inside a nested cmd.exe /C / applocal.ps1
-          # invocation reproducibly fails with exit 127. The transforms
-          # themselves are exercised in monorepo CI; standalone Windows
-          # builds the binary fine, just without the staged Node tools.
+          # Windows is skipped for now: the POST_BUILD `npm.cmd install` step
+          # (topo-build/CMakeLists.txt) reproducibly fails with exit 127 inside
+          # the nested cmd.exe / vcpkg applocal.ps1 POST_BUILD context, so the
+          # contract-pass transform tests do NOT run on Windows. This is a
+          # tracked gap, NOT covered elsewhere — there is no monorepo CI and the
+          # private-meta CI is an inert placeholder (CLAUDE.md). Linux/macOS
+          # stage + run the transforms; standalone Windows builds the binary
+          # without the Node tools. Re-enable once the npm-on-Windows invocation
+          # is fixed.
           if [ -d "${RUNNER_TEMP}/topo-v8-tools" ] && [ "${{ runner.os }}" != "Windows" ]; then
             TOOLS_ARG="-DTOPO_V8_TOOLS_DIR=${RUNNER_TEMP}/topo-v8-tools"
           else
