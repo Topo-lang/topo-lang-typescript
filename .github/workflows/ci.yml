@@ -67,8 +67,14 @@ jobs:
         id: topo-cache
         uses: actions/cache@v5
         with:
-          path: ${{ runner.temp }}/topo-install
-          key: topo-core-${{ env.TOPO_CORE_REF }}-lang-${{ env.TOPO_LANG_REF }}-v8-${{ env.TOPO_V8_REF }}-${{ matrix.os }}-v3
+          # Cache the staged topo-v8 contract-pass tools tree ALONGSIDE the
+          # install prefix under the SAME key, so a cache hit restores BOTH.
+          # Previously only topo-install was cached, so on a cache hit the
+          # topo-v8-tools dir was absent and the transforms silently skipped.
+          path: |
+            ${{ runner.temp }}/topo-install
+            ${{ runner.temp }}/topo-v8-tools
+          key: topo-core-${{ env.TOPO_CORE_REF }}-lang-${{ env.TOPO_LANG_REF }}-v8-${{ env.TOPO_V8_REF }}-${{ matrix.os }}-v4
 
       - name: Build & install topo-core (zero-LLVM, lang-less)
         if: steps.topo-cache.outputs.cache-hit != 'true'
@@ -134,30 +140,31 @@ jobs:
 
       - name: Configure topo-lang-typescript
         run: |
-          # When topo-v8-tools was staged in this run (cache miss), stage
-          # contract-pass transforms; otherwise skip (cache restore doesn't
-          # include the tools/ tree).
+          # The contract-pass tools are staged from topo-v8/tools and cached
+          # alongside topo-install (same cache path), so the dir is present on
+          # both cache hit and miss. On Linux/macOS we REQUIRE them: a missing
+          # tools tree is a hard FAIL, not a silent skip (skip != pass).
           #
-          # Windows is skipped for now: the POST_BUILD `npm.cmd install` step
-          # (topo-build/CMakeLists.txt) reproducibly fails with exit 127 inside
-          # the nested cmd.exe / vcpkg applocal.ps1 POST_BUILD context, so the
-          # contract-pass transform tests do NOT run on Windows. This is a
-          # tracked gap, NOT covered elsewhere — there is no monorepo CI and the
-          # private-meta CI is an inert placeholder (CLAUDE.md). Linux/macOS
-          # stage + run the transforms; standalone Windows builds the binary
-          # without the Node tools. Re-enable once the npm-on-Windows invocation
-          # is fixed.
-          if [ -d "${RUNNER_TEMP}/topo-v8-tools" ] && [ "${{ runner.os }}" != "Windows" ]; then
+          # Windows is still skipped: the POST_BUILD `npm.cmd install` step
+          # (topo-build/CMakeLists.txt) reproducibly fails exit 127 inside the
+          # nested cmd.exe / vcpkg applocal.ps1 context — a tracked gap
+          # (topo-lang-typescript Windows npm staging). Re-enable once fixed.
+          REQUIRE_ARG=""
+          TOOLS_ARG=""
+          if [ "${{ runner.os }}" != "Windows" ]; then
+            if [ ! -d "${RUNNER_TEMP}/topo-v8-tools/visibility-transform" ]; then
+              echo "::error::topo-v8-tools missing (visibility-transform absent) — contract-pass transforms would silently skip"
+              exit 1
+            fi
             TOOLS_ARG="-DTOPO_V8_TOOLS_DIR=${RUNNER_TEMP}/topo-v8-tools"
-          else
-            TOOLS_ARG=""
+            REQUIRE_ARG="-DTOPO_LANG_TYPESCRIPT_REQUIRE_CONTRACT_PASSES=ON"
           fi
           cmake -S . -B build -G Ninja \
               -DCMAKE_BUILD_TYPE=Release \
               -DCMAKE_PREFIX_PATH="${RUNNER_TEMP}/topo-install" \
               -DCMAKE_TOOLCHAIN_FILE="${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake" \
               -DTOPO_LANG_TYPESCRIPT_BUILD_TESTS=ON \
-              ${TOOLS_ARG}
+              ${TOOLS_ARG} ${REQUIRE_ARG}
 
       - name: Build
         run: cmake --build build
