@@ -67,14 +67,8 @@ jobs:
         id: topo-cache
         uses: actions/cache@v5
         with:
-          # Cache the staged topo-v8 contract-pass tools tree ALONGSIDE the
-          # install prefix under the SAME key, so a cache hit restores BOTH.
-          # Previously only topo-install was cached, so on a cache hit the
-          # topo-v8-tools dir was absent and the transforms silently skipped.
-          path: |
-            ${{ runner.temp }}/topo-install
-            ${{ runner.temp }}/topo-v8-tools
-          key: topo-core-${{ env.TOPO_CORE_REF }}-lang-${{ env.TOPO_LANG_REF }}-v8-${{ env.TOPO_V8_REF }}-${{ matrix.os }}-v4
+          path: ${{ runner.temp }}/topo-install
+          key: topo-core-${{ env.TOPO_CORE_REF }}-lang-${{ env.TOPO_LANG_REF }}-v8-${{ env.TOPO_V8_REF }}-${{ matrix.os }}-v3
 
       - name: Build & install topo-core (zero-LLVM, lang-less)
         if: steps.topo-cache.outputs.cache-hit != 'true'
@@ -132,11 +126,26 @@ jobs:
                 -DCMAKE_PREFIX_PATH="${RUNNER_TEMP}/topo-install" \
                 -DCMAKE_TOOLCHAIN_FILE="${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
           cmake --build "${RUNNER_TEMP}/topo-v8-build" --target install
-          # Stash the topo-v8 source tools/ directory so topo-lang-typescript
-          # can stage the Node contract-pass transforms. (The tools live in
-          # topo-v8's source tree but aren't in its install set today.)
-          mkdir -p "${RUNNER_TEMP}/topo-v8-tools"
-          cp -R "${RUNNER_TEMP}/topo-v8-src/tools/." "${RUNNER_TEMP}/topo-v8-tools/"
+
+      - name: Stage topo-v8 contract-pass tools (deterministic)
+        # The Node contract-pass tools live in topo-v8's source tree (not its
+        # install set), and topo-install is cached while this tree is not — so
+        # on a cache hit the topo-v8 source was never cloned. Stage the tools
+        # (independent of the install cache) by sparse-cloning just
+        # topo-v8/tools when absent, so they are present on every run and the
+        # contract-pass transforms never silently skip. Non-Windows only —
+        # Windows excludes the transforms (npm.cmd staging, tracked separately).
+        if: runner.os != 'Windows'
+        run: |
+          set -euo pipefail
+          if [ ! -d "${RUNNER_TEMP}/topo-v8-tools/visibility-transform" ]; then
+            git clone --depth 1 --branch "${TOPO_V8_REF}" --filter=blob:none --sparse \
+                https://github.com/topo-lang/topo-v8.git "${RUNNER_TEMP}/topo-v8-tools-src"
+            git -C "${RUNNER_TEMP}/topo-v8-tools-src" sparse-checkout set tools
+            mkdir -p "${RUNNER_TEMP}/topo-v8-tools"
+            cp -R "${RUNNER_TEMP}/topo-v8-tools-src/tools/." "${RUNNER_TEMP}/topo-v8-tools/"
+          fi
+          test -d "${RUNNER_TEMP}/topo-v8-tools/visibility-transform"
 
       - name: Configure topo-lang-typescript
         run: |
