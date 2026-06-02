@@ -50,10 +50,10 @@ gtest_discover_tests(topo-lang-typescript-tests
 # asserts the exit code + stderr label. Tool process is fast — validation
 # fires before any extractor/transform subprocess is spawned.
 #
-# Windows-skipped: every test times out at 30s on GHA windows-2022 — same
-# MinGW-host subprocess pattern that hits topo-tpm's CLI integration and
-# topo-build-python-input-trust suites.
-if(TARGET topo-build-typescript AND NOT WIN32)
+# Previously Windows-skipped (every test timed out at 30s on GHA windows-2022,
+# the MinGW-host subprocess hang). Fixed in topo-core (raw-Win32 capture) + the
+# build-time gcc PATH-prepend in the Test step so the spawned MinGW tool loads.
+if(TARGET topo-build-typescript)
     add_executable(topo-build-typescript-input-trust-tests
         unit/TypeScriptBackendExtrasInputTrustTest.cpp
     )
