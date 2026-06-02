@@ -188,6 +188,20 @@ jobs:
             ( cd "${dir}" && npm install --omit=dev --no-audit --no-fund )
           done
 
+      - name: npm install topo-extract-typescript (build-dir copy)
+        # The CMake topo-extract-typescript-stage target copies the extractor
+        # tool body into build/topo-build/topo-extract-typescript-tool but no
+        # longer runs npm (npm exits 127 from a CMake command on windows-2022,
+        # the same root cause as the contract-pass transforms). Populate
+        # node_modules/typescript here so the extractor smoke test
+        # (`node --test smoke.test.mjs`, which spawns `node index.mjs`) can
+        # import 'typescript' at ctest time. Runs on all three OSes.
+        run: |
+          set -euo pipefail
+          dir="build/topo-build/topo-extract-typescript-tool"
+          test -f "${dir}/package.json" || { echo "::error::expected staged extractor package.json missing: ${dir}/package.json"; exit 1; }
+          ( cd "${dir}" && npm install --omit=dev --no-audit --no-fund )
+
       - name: Test
         run: |
           # Windows: the input-trust suite spawns the MinGW-linked
