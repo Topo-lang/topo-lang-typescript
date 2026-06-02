@@ -35,6 +35,9 @@ install(TARGETS topo-build-typescript
 # Gated additionally by the top-level Node toggle: when
 # TOPO_LANG_TYPESCRIPT_ENABLE_NODE_EXTRACTOR is OFF (or npm is missing)
 # the staging is unconditionally skipped.
+option(TOPO_LANG_TYPESCRIPT_REQUIRE_CONTRACT_PASSES
+    "Fail configure if the contract-pass transforms cannot be staged (no silent skip)" OFF)
+
 if(TOPO_LANG_TYPESCRIPT_ENABLE_NODE_EXTRACTOR)
     set(TOPO_V8_TOOLS_DIR "" CACHE PATH
         "Directory containing the topo-v8 Node tools (visibility-transform, containment-guard-transform, stage-assert-transform). When set, topo-build-typescript stages and npm-installs each tool beside its binary.")
@@ -44,6 +47,13 @@ if(TOPO_LANG_TYPESCRIPT_ENABLE_NODE_EXTRACTOR)
         set(_cgTransformSrc  ${TOPO_V8_TOOLS_DIR}/containment-guard-transform)
         set(_saTransformSrc  ${TOPO_V8_TOOLS_DIR}/stage-assert-transform)
         if(NOT (EXISTS ${_visTransformSrc} AND EXISTS ${_cgTransformSrc} AND EXISTS ${_saTransformSrc}))
+            if(TOPO_LANG_TYPESCRIPT_REQUIRE_CONTRACT_PASSES)
+                message(FATAL_ERROR
+                    "topo-lang-typescript: TOPO_V8_TOOLS_DIR=${TOPO_V8_TOOLS_DIR} is missing one or "
+                    "more of visibility-transform / containment-guard-transform / stage-assert-transform, "
+                    "but TOPO_LANG_TYPESCRIPT_REQUIRE_CONTRACT_PASSES=ON — refusing to build with the "
+                    "contract-pass transforms unverified.")
+            endif()
             message(WARNING
                 "topo-lang-typescript: TOPO_V8_TOOLS_DIR=${TOPO_V8_TOOLS_DIR} is "
                 "missing one or more of visibility-transform / containment-guard-transform / "
@@ -90,6 +100,12 @@ if(TOPO_LANG_TYPESCRIPT_ENABLE_NODE_EXTRACTOR)
             CACHE INTERNAL "Contract-pass transforms staged beside topo-build-typescript")
         message(STATUS "topo-lang-typescript: staging contract-pass transforms from ${TOPO_V8_TOOLS_DIR}")
     else()
+        if(TOPO_LANG_TYPESCRIPT_REQUIRE_CONTRACT_PASSES)
+            message(FATAL_ERROR
+                "topo-lang-typescript: TOPO_V8_TOOLS_DIR not set but "
+                "TOPO_LANG_TYPESCRIPT_REQUIRE_CONTRACT_PASSES=ON — refusing to build with "
+                "contract-pass transforms unverified (set -DTOPO_V8_TOOLS_DIR=<path-to-topo-v8/tools>).")
+        endif()
         set(TOPO_LANG_TS_CONTRACT_PASSES_STAGED OFF
             CACHE INTERNAL "Contract-pass transforms staged beside topo-build-typescript")
         message(STATUS "topo-lang-typescript: TOPO_V8_TOOLS_DIR not set — "
@@ -97,6 +113,11 @@ if(TOPO_LANG_TYPESCRIPT_ENABLE_NODE_EXTRACTOR)
                        "(set -DTOPO_V8_TOOLS_DIR=<path-to-topo-v8/tools> to enable).")
     endif()
 else()
+    if(TOPO_LANG_TYPESCRIPT_REQUIRE_CONTRACT_PASSES)
+        message(FATAL_ERROR
+            "topo-lang-typescript: TOPO_LANG_TYPESCRIPT_REQUIRE_CONTRACT_PASSES=ON but "
+            "TOPO_LANG_TYPESCRIPT_ENABLE_NODE_EXTRACTOR is OFF — cannot stage contract-pass transforms.")
+    endif()
     set(TOPO_LANG_TS_CONTRACT_PASSES_STAGED OFF
         CACHE INTERNAL "Contract-pass transforms staged beside topo-build-typescript")
 endif()
