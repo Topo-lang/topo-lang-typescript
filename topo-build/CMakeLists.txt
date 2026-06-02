@@ -63,37 +63,30 @@ if(TOPO_LANG_TYPESCRIPT_ENABLE_NODE_EXTRACTOR)
     endif()
 
     if(TOPO_V8_TOOLS_DIR)
-        # On Windows the actionable launcher is npm.cmd; the bare `npm`
-        # file in the same directory is a POSIX shell script that cmd.exe
-        # can't exec, so prefer the .cmd variant when present.
-        find_program(NPM_EXECUTABLE NAMES npm.cmd npm REQUIRED
-            DOC "npm CLI used to install contract-pass tools' typescript dependency")
-
         set(_visTransformDst $<TARGET_FILE_DIR:topo-build-typescript>/visibility-transform)
         set(_cgTransformDst  $<TARGET_FILE_DIR:topo-build-typescript>/containment-guard-transform)
         set(_saTransformDst  $<TARGET_FILE_DIR:topo-build-typescript>/stage-assert-transform)
 
-        # Copy each transform tool next to the binary, then run
-        # `npm install --omit=dev` inside each destination so the tool's
-        # `import 'typescript'` resolves against a local node_modules. npm is
-        # idempotent against package-lock.json so reruns are cheap no-ops.
+        # Copy each transform tool next to the binary. The `npm install` that
+        # populates each tool's node_modules/typescript is performed by the CI
+        # workflow (a dedicated bash step after Build), not here: invoking
+        # npm.cmd from a CMake POST_BUILD exits 127 on GHA windows-2022 inside
+        # the nested cmd.exe / vcpkg applocal.ps1 wrapper. node_modules is only
+        # needed at ctest time (the Node smoke tests `import 'typescript'`), so
+        # a post-build install satisfies every consumer. Local/dev: run
+        # `npm install --omit=dev --prefix <build-dir>/topo-build/<tool>` after
+        # building (the ts-tool-smoke tests fail loudly without it).
         add_custom_command(TARGET topo-build-typescript POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E copy_directory
                 ${_visTransformSrc}
                 ${_visTransformDst}
-            COMMAND ${NPM_EXECUTABLE} install --omit=dev --no-audit --no-fund --silent
-                --prefix ${_visTransformDst}
             COMMAND ${CMAKE_COMMAND} -E copy_directory
                 ${_cgTransformSrc}
                 ${_cgTransformDst}
-            COMMAND ${NPM_EXECUTABLE} install --omit=dev --no-audit --no-fund --silent
-                --prefix ${_cgTransformDst}
             COMMAND ${CMAKE_COMMAND} -E copy_directory
                 ${_saTransformSrc}
                 ${_saTransformDst}
-            COMMAND ${NPM_EXECUTABLE} install --omit=dev --no-audit --no-fund --silent
-                --prefix ${_saTransformDst}
-            COMMENT "Staging contract-pass tools (visibility, containment-guard, stage-assert) + npm install"
+            COMMENT "Staging contract-pass tools (visibility, containment-guard, stage-assert)"
             VERBATIM
         )
         set(TOPO_LANG_TS_CONTRACT_PASSES_STAGED ON
