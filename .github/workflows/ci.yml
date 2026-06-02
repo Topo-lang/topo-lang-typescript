@@ -68,7 +68,7 @@ jobs:
         uses: actions/cache@v5
         with:
           path: ${{ runner.temp }}/topo-install
-          key: topo-core-${{ env.TOPO_CORE_REF }}-lang-${{ env.TOPO_LANG_REF }}-v8-${{ env.TOPO_V8_REF }}-${{ matrix.os }}-v3
+          key: topo-core-${{ env.TOPO_CORE_REF }}-lang-${{ env.TOPO_LANG_REF }}-v8-${{ env.TOPO_V8_REF }}-${{ matrix.os }}-v4
 
       - name: Build & install topo-core (zero-LLVM, lang-less)
         if: steps.topo-cache.outputs.cache-hit != 'true'
@@ -189,7 +189,18 @@ jobs:
           done
 
       - name: Test
-        run: ctest --test-dir build --output-on-failure --timeout 120 --no-tests=error
+        run: |
+          # Windows: the input-trust suite spawns the MinGW-linked
+          # topo-build-typescript.exe; a stale libstdc++-6.dll earlier on PATH
+          # makes it fail to load (0xC0000139). Put the build-time gcc bin dir
+          # FIRST so the matching runtime resolves; the spawned child inherits it.
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            cxx=$(grep -m1 '^CMAKE_CXX_COMPILER:' build/CMakeCache.txt | cut -d= -f2)
+            if [ -n "$cxx" ]; then
+              export PATH="$(cygpath -u "$(dirname "$cxx")"):${PATH}"
+            fi
+          fi
+          ctest --test-dir build --output-on-failure --timeout 120 --no-tests=error
 
       # Smoke test: install topo-lang-typescript, then verify a downstream
       # find_package(topo-lang-typescript CONFIG REQUIRED) resolves and
