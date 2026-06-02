@@ -21,21 +21,17 @@ if(NOT TARGET topo-build-typescript)
     return()
 endif()
 
-# Windows-skip: the chained `cmake -E copy_directory` + `npm.cmd install` +
-# `cmake -E copy` POST_BUILD step reproducibly exits 127 on GHA windows-2022
-# inside the nested cmd.exe / applocal.ps1 invocation. The extractor itself
-# is Node-only and is exercised by monorepo CI; standalone Windows builds
-# topo-build-typescript fine, just without the staged Node launcher.
-# Downstream e2e tests detect the absent launcher and self-skip.
-if(WIN32)
-    message(STATUS "topo-lang-typescript: topo-extract-typescript staging "
-        "disabled on Windows (POST_BUILD npm chain trips exit 127 in CI). "
-        "e2e tests that need the launcher will self-skip.")
-    return()
-endif()
-
-find_program(NPM_EXECUTABLE NAMES npm.cmd npm REQUIRED
-    DOC "npm CLI used to install topo-extract-typescript's typescript dependency")
+# Stages on ALL platforms (Windows included). The `npm install` that populates
+# the tool's node_modules/typescript is NOT run from the staging custom command
+# in a standalone build: npm reproducibly exits 127 when invoked from a CMake
+# command on GHA windows-2022 (the nested cmd.exe / applocal.ps1 layer — the
+# same root cause the contract-pass transforms hit). In the standalone per-repo
+# build the CI workflow installs node_modules out-of-band with a dedicated
+# `cd <tool-dir> && npm install` step. In the meta full-stack build (embedded
+# mode, local + POSIX) there is no such workflow step, so an npm POST_BUILD is
+# attached at the bottom of this file, gated to embedded + POSIX, so the meta's
+# ts-tool-smoke.topo-extract-typescript node test keeps a populated node_modules.
+# This staging target itself only copies the tool body + places the launcher.
 
 set(_extractSrc ${CMAKE_CURRENT_SOURCE_DIR})
 set(_binDir $<TARGET_FILE_DIR:topo-build-typescript>)
@@ -47,16 +43,15 @@ else()
     set(_launcherName topo-extract-typescript)
 endif()
 
-# Copy the tool, npm install its typescript dependency (idempotent against
-# package-lock.json), place the launcher beside the binary, and on POSIX
-# mark both launcher copies executable so PATH resolution can exec them.
+# Copy the tool body, place the launcher beside the binary, and on POSIX mark
+# both launcher copies executable so PATH resolution can exec them. The
+# typescript dependency is npm-installed into ${_extractDst} by the CI
+# workflow's dedicated post-build step (see the comment above), not here.
 add_custom_target(topo-extract-typescript-stage ALL
     COMMAND ${CMAKE_COMMAND} -E copy_directory ${_extractSrc} ${_extractDst}
-    COMMAND ${NPM_EXECUTABLE} install --omit=dev --no-audit --no-fund --silent
-        --prefix ${_extractDst}
     COMMAND ${CMAKE_COMMAND} -E copy
         ${_extractDst}/${_launcherName} ${_binDir}/${_launcherName}
-    COMMENT "Staging topo-extract-typescript + npm install"
+    COMMENT "Staging topo-extract-typescript (node_modules installed out-of-band)"
     VERBATIM
 )
 add_dependencies(topo-extract-typescript-stage topo-build-typescript)
@@ -69,4 +64,25 @@ if(NOT WIN32)
         COMMENT "Marking topo-extract-typescript launcher executable"
         VERBATIM
     )
+endif()
+
+# Meta full-stack build accommodation. In a standalone build
+# (PROJECT_IS_TOP_LEVEL) node_modules is installed by the CI workflow step; the
+# meta build embeds this clone (PROJECT_IS_TOP_LEVEL is FALSE) and has no such
+# step, so install node_modules here so its ts-tool-smoke.topo-extract-typescript
+# node test (`node --test smoke.test.mjs`, which spawns `node index.mjs`) can
+# import 'typescript'. POSIX only — the meta build runs locally on POSIX, and
+# this avoids the windows-2022 npm-from-CMake failure entirely. When the
+# extractor is staged, ENABLE_NODE_EXTRACTOR's npm/node probe already passed, so
+# npm is present.
+if(NOT PROJECT_IS_TOP_LEVEL AND NOT WIN32)
+    find_program(NPM_EXECUTABLE NAMES npm npm.cmd)
+    if(NPM_EXECUTABLE)
+        add_custom_command(TARGET topo-extract-typescript-stage POST_BUILD
+            COMMAND ${NPM_EXECUTABLE} install --omit=dev --no-audit --no-fund --silent
+            WORKING_DIRECTORY ${_extractDst}
+            COMMENT "meta build: npm install for staged topo-extract-typescript"
+            VERBATIM
+        )
+    endif()
 endif()
