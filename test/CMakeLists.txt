@@ -92,10 +92,11 @@ message(STATUS "topo-lang-typescript tests: functional-e2e suite is gated off "
 # --- TS transform tool Node smoke tests ---
 # Each tool ships its own smoke.test.mjs that drives the production tool via
 # its JSON request/response protocol using node:test. Tests run against the
-# build-dir tool copies (which have node_modules installed by the staging
-# POST_BUILD step). Only run when contract-pass staging actually happened
-# (TOPO_V8_TOOLS_DIR was provided) and the topo-extract-typescript launcher
-# was staged.
+# build-dir tool copies (the POST_BUILD copies the tool sources; node_modules
+# is installed by `npm install` — the CI workflow's dedicated post-build step,
+# or manually in local/dev builds). Only run when contract-pass staging
+# actually happened (TOPO_V8_TOOLS_DIR was provided) and the
+# topo-extract-typescript launcher was staged.
 if(TOPO_LANG_TS_CONTRACT_PASSES_STAGED AND TARGET topo-build-typescript)
     find_program(NODE_EXECUTABLE node REQUIRED
         DOC "node binary used to run TS transform tool smoke tests")

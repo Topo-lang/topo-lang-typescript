@@ -133,9 +133,10 @@ jobs:
         # on a cache hit the topo-v8 source was never cloned. Stage the tools
         # (independent of the install cache) by sparse-cloning just
         # topo-v8/tools when absent, so they are present on every run and the
-        # contract-pass transforms never silently skip. Non-Windows only —
-        # Windows excludes the transforms (npm.cmd staging, tracked separately).
-        if: runner.os != 'Windows'
+        # contract-pass transforms never silently skip. Runs on every OS — the
+        # npm install moved out of the CMake POST_BUILD into a dedicated
+        # workflow step below (npm.cmd can't run from a POST_BUILD on
+        # windows-2022), so the transforms stage + test on Windows too.
         run: |
           set -euo pipefail
           if [ ! -d "${RUNNER_TEMP}/topo-v8-tools/visibility-transform" ]; then
@@ -149,37 +150,46 @@ jobs:
 
       - name: Configure topo-lang-typescript
         run: |
-          # The contract-pass tools are staged from topo-v8/tools and cached
-          # alongside topo-install (same cache path), so the dir is present on
-          # both cache hit and miss. On Linux/macOS we REQUIRE them: a missing
-          # tools tree is a hard FAIL, not a silent skip (skip != pass).
-          #
-          # Windows is still skipped: the POST_BUILD `npm.cmd install` step
-          # (topo-build/CMakeLists.txt) reproducibly fails exit 127 inside the
-          # nested cmd.exe / vcpkg applocal.ps1 context — a tracked gap
-          # (topo-lang-typescript Windows npm staging). Re-enable once fixed.
-          REQUIRE_ARG=""
-          TOOLS_ARG=""
-          if [ "${{ runner.os }}" != "Windows" ]; then
-            if [ ! -d "${RUNNER_TEMP}/topo-v8-tools/visibility-transform" ]; then
-              echo "::error::topo-v8-tools missing (visibility-transform absent) — contract-pass transforms would silently skip"
-              exit 1
-            fi
-            TOOLS_ARG="-DTOPO_V8_TOOLS_DIR=${RUNNER_TEMP}/topo-v8-tools"
-            REQUIRE_ARG="-DTOPO_LANG_TYPESCRIPT_REQUIRE_CONTRACT_PASSES=ON"
+          # The contract-pass tools are staged from topo-v8/tools (the step
+          # above) on every OS. REQUIRE them everywhere: a missing tools tree is
+          # a hard FAIL, not a silent skip (skip != pass). The npm install that
+          # populates each tool's node_modules runs after Build (npm.cmd can't
+          # run from the CMake POST_BUILD on windows-2022).
+          if [ ! -d "${RUNNER_TEMP}/topo-v8-tools/visibility-transform" ]; then
+            echo "::error::topo-v8-tools missing (visibility-transform absent) — contract-pass transforms would silently skip"
+            exit 1
           fi
           cmake -S . -B build -G Ninja \
               -DCMAKE_BUILD_TYPE=Release \
               -DCMAKE_PREFIX_PATH="${RUNNER_TEMP}/topo-install" \
               -DCMAKE_TOOLCHAIN_FILE="${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake" \
               -DTOPO_LANG_TYPESCRIPT_BUILD_TESTS=ON \
-              ${TOOLS_ARG} ${REQUIRE_ARG}
+              -DTOPO_V8_TOOLS_DIR="${RUNNER_TEMP}/topo-v8-tools" \
+              -DTOPO_LANG_TYPESCRIPT_REQUIRE_CONTRACT_PASSES=ON
 
       - name: Build
         run: cmake --build build
 
+      - name: npm install contract-pass transforms (build-dir copies)
+        # POST_BUILD copies each transform into build/topo-build/<tool>/ but no
+        # longer runs npm (npm.cmd exits 127 from a CMake POST_BUILD on
+        # windows-2022). Populate node_modules/typescript here so the
+        # ts-tool-smoke Node tests can `import 'typescript'` at ctest time.
+        run: |
+          set -euo pipefail
+          for tool in visibility-transform containment-guard-transform stage-assert-transform; do
+            dir="build/topo-build/${tool}"
+            test -f "${dir}/package.json" || { echo "::error::expected staged transform package.json missing: ${dir}/package.json"; exit 1; }
+            # cd into the tool dir rather than `npm install --prefix <dir>`: on
+            # windows-2022 npm --prefix still resolves package.json from the CWD
+            # (repo root, which has no package.json) and fails ENOENT, while it
+            # works on POSIX. cd makes package.json + node_modules resolution
+            # unambiguous on all three OSes.
+            ( cd "${dir}" && npm install --omit=dev --no-audit --no-fund )
+          done
+
       - name: Test
-        run: ctest --test-dir build --output-on-failure --timeout 120
+        run: ctest --test-dir build --output-on-failure --timeout 120 --no-tests=error
 
       # Smoke test: install topo-lang-typescript, then verify a downstream
       # find_package(topo-lang-typescript CONFIG REQUIRED) resolves and
