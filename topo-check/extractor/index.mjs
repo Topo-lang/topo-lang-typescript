@@ -160,6 +160,13 @@ const COMPOUND = {
     [ts.SyntaxKind.GreaterThanGreaterThanEqualsToken]: "shr",
 };
 
+// The base-op strings that have a genuine compound-assignment form. Only
+// arithmetic / bitwise / shift ops qualify — comparison (eq/less/...) and
+// logical (and/or) BINOP entries have no `<op>=` counterpart, so lowering
+// `x = x < y` to a `<`-compound-assign would fabricate a node with no source
+// meaning. Derived from COMPOUND so the two stay in lockstep.
+const COMPOUND_BASE_OPS = new Set(Object.values(COMPOUND));
+
 function unsupportedExpr(desc) {
     // Same convention as FnLift.fidelity(): a SOURCE extractor's
     // approximate emission tags as "inferred", not "recovered". See the
@@ -180,6 +187,11 @@ function lowerSelfAssign(node, lift) {
     if (!ts.isBinaryExpression(rhs)) return null;
     const op = BINOP[rhs.operatorToken.kind];
     if (op === undefined) return null;
+    // Only ops with a real `<op>=` form may become a CompoundAssign. A
+    // comparison/logical RHS (`x = x < 5`, `x = x && y`) has no compound
+    // counterpart, so decline and let the caller record it as unsupported
+    // rather than emit a nonsensical `<`/`and`-compound-assign.
+    if (!COMPOUND_BASE_OPS.has(op)) return null;
     // Require the LHS to reappear as the left operand of the RHS binop,
     // compared by source text (covers identifiers and simple member/index).
     if (rhs.left.getText() !== target.getText()) return null;
@@ -195,9 +207,16 @@ function liftExpr(node, lift) {
     switch (node.kind) {
         case ts.SyntaxKind.NumericLiteral: {
             const t = node.getText();
-            return /[.eE]/.test(t)
-                ? lit("float", t)
-                : lit("integer", t);
+            // Radix-prefixed literals (0x.../0b.../0o...) are always integers
+            // and never carry a fraction/exponent, yet their digits can
+            // legitimately contain e/E (hex) or b (binary marker). Classify
+            // them as integer up front so the decimal float heuristic below
+            // does not misread `0xE1` / `0xBEEF` as a float.
+            return /^0[xXbBoO]/.test(t)
+                ? lit("integer", t)
+                : /[.eE]/.test(t)
+                    ? lit("float", t)
+                    : lit("integer", t);
         }
         case ts.SyntaxKind.BigIntLiteral:
             return lit("integer", node.getText().replace(/n$/, ""));

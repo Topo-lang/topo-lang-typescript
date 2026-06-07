@@ -69,6 +69,107 @@ test("lifts a function with arithmetic into lowercase-kind JSON", () => {
     assert.equal(fn.body[0].value.rhs.litKind, "integer");
 });
 
+test("hex integer literal containing e/E lifts as integer, not float", () => {
+    // Regression: the decimal float heuristic `/[.eE]/` previously misread
+    // hex digits as a fraction/exponent, tagging `0xE1` / `0xBEEF` as float.
+    const mod = run(
+        "export function masks(): number { return 0xE1 + 0xBEEF; }\n",
+        { functions: ["masks"] });
+    const ret = mod.functions[0].body[0].value;
+    assert.equal(ret.kind, "binaryop");
+    assert.equal(ret.lhs.kind, "literal");
+    assert.equal(ret.lhs.litKind, "integer");
+    assert.equal(ret.lhs.value, "0xE1");
+    assert.equal(ret.rhs.litKind, "integer");
+    assert.equal(ret.rhs.value, "0xBEEF");
+    assert.equal(mod.functions[0].fidelity, "source");
+});
+
+test("binary/octal radix literals lift as integer", () => {
+    const mod = run(
+        "export function radix(): number { return 0b1010 + 0o17; }\n",
+        { functions: ["radix"] });
+    const ret = mod.functions[0].body[0].value;
+    assert.equal(ret.lhs.litKind, "integer");
+    assert.equal(ret.rhs.litKind, "integer");
+});
+
+test("decimal float with exponent still lifts as float", () => {
+    const mod = run(
+        "export function f(): number { return 1.5e3; }\n",
+        { functions: ["f"] });
+    assert.equal(mod.functions[0].body[0].value.litKind, "float");
+});
+
+test("self-update in expression position with arithmetic op lowers to compoundassign", () => {
+    // `x = x + 1` as a for-incrementor is an assignment in EXPRESSION position,
+    // which routes through lowerSelfAssign (the statement-level `x = ...` form
+    // emits a dedicated `assign` node and never reaches lowerSelfAssign).
+    const mod = run(
+        "export function acc(n: number): number {\n" +
+        "  let s: number = 0;\n" +
+        "  for (let i: number = 0; i < n; s = s + 1) {}\n" +
+        "  return s;\n" +
+        "}\n",
+        { functions: ["acc"] });
+    const fn = mod.functions[0];
+    const forStmt = fn.body.find((b) => b.kind === "for");
+    assert.equal(forStmt.increment.kind, "compoundassign");
+    assert.equal(forStmt.increment.op, "add");
+    assert.equal(fn.fidelity, "source");
+});
+
+test("self-update in expression position with comparison op declines, marked unsupported", () => {
+    // Regression: `x = x < 5` previously lowered to a nonsensical
+    // `<`-compound-assign tagged source-fidelity. It must now decline and be
+    // recorded as unsupported so no wrong-but-valid node reaches the Model.
+    const mod = run(
+        "export function cmp(x: number): number {\n" +
+        "  for (let i: number = 0; i < 3; x = x < 5) {}\n" +
+        "  return x;\n" +
+        "}\n",
+        { functions: ["cmp"] });
+    const fn = mod.functions[0];
+    assert.equal(fn.fidelity, "inferred");
+    assert.ok(fn.unsupported.some((u) => /assignment/.test(u)),
+        `expected an assignment-unsupported note, got: ${JSON.stringify(fn.unsupported)}`);
+    // The for-incrementor degrades to an unsupported expr, never a
+    // comparison-flavoured compoundassign.
+    const forStmt = fn.body.find((b) => b.kind === "for");
+    assert.equal(forStmt.increment.kind, "unsupported");
+    const json = JSON.stringify(fn.body);
+    assert.ok(!/compoundassign/.test(json) ||
+        !/"op":"(eq|noteq|less|greater|lesseq|greatereq|and|or)"/.test(json));
+});
+
+test("self-update in expression position with logical op declines compoundassign", () => {
+    const mod = run(
+        "export function band(x: number): number {\n" +
+        "  for (let i: number = 0; i < 3; x = x && 0) {}\n" +
+        "  return x;\n" +
+        "}\n",
+        { functions: ["band"] });
+    const fn = mod.functions[0];
+    assert.equal(fn.fidelity, "inferred");
+    assert.ok(fn.unsupported.some((u) => /assignment/.test(u)));
+    const forStmt = fn.body.find((b) => b.kind === "for");
+    assert.equal(forStmt.increment.kind, "unsupported");
+});
+
+test("self-update in expression position with bitwise op still lowers to compoundassign", () => {
+    const mod = run(
+        "export function mask(x: number): number {\n" +
+        "  for (let i: number = 0; i < 3; x = x & 7) {}\n" +
+        "  return x;\n" +
+        "}\n",
+        { functions: ["mask"] });
+    const fn = mod.functions[0];
+    const forStmt = fn.body.find((b) => b.kind === "for");
+    assert.equal(forStmt.increment.kind, "compoundassign");
+    assert.equal(forStmt.increment.op, "bitand");
+    assert.equal(fn.fidelity, "source");
+});
+
 test("namespaced function keyed with :: separator", () => {
     const mod = run(
         "namespace m { export function f(n: number): number { return n; } }\n",
