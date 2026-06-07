@@ -504,6 +504,43 @@ test("symbols mode: CommonJS module.exports.X and bulk forms", () => {
                      ["a", "bImpl"]);
 });
 
+test("symbols mode: computed key recovers a string-literal name, drops dynamic", () => {
+    // Regression: `{ ["dyn"]: m }` previously emitted the literal source text
+    // `["dyn"]` as the symbol name. A string-literal computed key has a static
+    // name (`dyn`); a non-literal computed key (`[k]`) is dynamic and must be
+    // dropped rather than emitted as an invalid name.
+    const res = runSymbols(
+        "function impl() {}\nconst k = \"runtime\";\n" +
+        "module.exports = { [\"dyn\"]: impl, [k]: impl, plain: impl };\n");
+    const names = res.symbols.map((s) => s.simpleName).sort();
+    assert.deepEqual(names, ["dyn", "plain"]);
+    // No symbol carries the raw bracket-source as a name.
+    assert.ok(!res.symbols.some((s) => /[[\]]/.test(s.qualifiedName)),
+        `unexpected bracketed name: ${JSON.stringify(names)}`);
+});
+
+test("symbols mode: every emitted field carries its contract JSON type", () => {
+    // Producer-side guard for the C++ deserializer contract: the AST extractor
+    // must always emit string qualifiedName/simpleName/kind/file/enclosingClass,
+    // a numeric line, and a boolean isStatic. A type-mismatched field would make
+    // the C++ side's entry.value<T>() throw and (via the worker catch(...))
+    // silently drop the whole completeness check.
+    const res = runSymbols(
+        "export function topLevel(x: number): number { return x; }\n" +
+        "export class C { static make(): void {} private hid(): void {} }\n");
+    assert.ok(res.symbols.length > 0);
+    for (const s of res.symbols) {
+        assert.equal(typeof s.qualifiedName, "string");
+        assert.equal(typeof s.simpleName, "string");
+        assert.equal(typeof s.kind, "string");
+        assert.equal(typeof s.file, "string");
+        assert.equal(typeof s.line, "number");
+        assert.equal(typeof s.isStatic, "boolean");
+        assert.equal(typeof s.enclosingClass, "string");
+        assert.equal(typeof s.visibility, "string");
+    }
+});
+
 test("symbols mode: declare ambient declarations are skipped", () => {
     const res = runSymbols(
         "declare function legacyFunction(id: number): string;\n" +

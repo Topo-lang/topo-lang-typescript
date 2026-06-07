@@ -9,6 +9,8 @@
 
 #include "extract/TypeScriptASTSymbolExtractor.h"
 
+#include "topo/Platform/Platform.h"
+
 #include <gtest/gtest.h>
 
 #include <algorithm>
@@ -39,11 +41,25 @@ protected:
     static void prependToolDirToPath() {
         const std::string toolDir = TOPO_EXTRACT_TS_TOOL_DIR;
         if (toolDir.empty()) return;
-        fs::path launcher = fs::path(toolDir) / "topo-extract-typescript";
+        // The staged launcher is `.cmd` on Windows, extensionless on POSIX —
+        // probe the platform-correct name so this does not silently bail out
+        // on Windows (where it would leave the suite to GTEST_SKIP).
+        const std::string launcherName =
+            std::string("topo-extract-typescript") +
+            (topo::platform::IsWindows ? ".cmd" : "");
+        fs::path launcher = fs::path(toolDir) / launcherName;
         if (!fs::exists(launcher)) return;
         const char* oldPath = std::getenv("PATH");
-        std::string newPath = toolDir + ":" + (oldPath ? oldPath : "");
+        // PATH entries are ';'-separated on Windows, ':' on POSIX.
+        std::string newPath = toolDir +
+                              std::string(topo::platform::PathSeparator) +
+                              (oldPath ? oldPath : "");
+#ifdef _WIN32
+        // MSVC has no setenv(); _putenv_s is its in-process equivalent.
+        _putenv_s("PATH", newPath.c_str());
+#else
         setenv("PATH", newPath.c_str(), 1);
+#endif
     }
 
     void SetUp() override {

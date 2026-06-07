@@ -814,10 +814,21 @@ function extractCjsObjectLiteral(objExpr, file, sourceFile, line, out) {
         if (ts.isShorthandPropertyAssignment(prop) && prop.name) {
             name = prop.name.getText(sourceFile);
         } else if (ts.isPropertyAssignment(prop) && prop.name) {
-            // Property key may be an Identifier or a string literal.
-            name = ts.isStringLiteralLike(prop.name)
-                ? prop.name.text
-                : prop.name.getText(sourceFile);
+            const key = prop.name;
+            if (ts.isComputedPropertyName(key)) {
+                // `{ ["dyn"]: m }` — a computed key. Only a string-literal
+                // computed key denotes a static export name (`"dyn"`); any
+                // other expression is dynamic and has no static name. Emitting
+                // `getText()` here would yield the literal source `["dyn"]` as
+                // a symbol name (invalid). Recover the string value, else skip.
+                name = ts.isStringLiteralLike(key.expression)
+                    ? key.expression.text
+                    : null;
+            } else {
+                // Property key is an Identifier or a string literal.
+                name = ts.isStringLiteralLike(key) ? key.text
+                                                   : key.getText(sourceFile);
+            }
         }
         if (name) {
             out.push({

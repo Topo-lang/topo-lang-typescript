@@ -8,12 +8,14 @@
 //   stdout → {"symbols":[{qualifiedName, simpleName, kind, file, line,
 //             enclosingClass, isStatic, visibility}, ...]}
 //
-// The tool is spawned by the bare name `topo-extract-typescript` (+ the
-// platform exe suffix) so PATH resolution finds the staged launcher — the
-// same contract the transpile path uses. No subprocess is the regex
-// extractor's path; this class exists precisely to replace that heuristic
-// with an exact AST walk while emitting the identical exported-only symbol
-// set the check fixtures expect.
+// The tool is spawned by the bare launcher name so PATH resolution finds the
+// staged launcher — the same contract the transpile path uses. On POSIX that
+// is the extensionless `topo-extract-typescript`; on Windows the launcher is
+// `topo-extract-typescript.cmd`, a batch script that must be run through
+// `cmd.exe /c` (a `.cmd` is not a valid executable image for CreateProcess).
+// No subprocess is the regex extractor's path; this class exists precisely to
+// replace that heuristic with an exact AST walk while emitting the identical
+// exported-only symbol set the check fixtures expect.
 
 #include "TypeScriptASTSymbolExtractor.h"
 
@@ -22,20 +24,38 @@
 
 #include <nlohmann/json.hpp>
 
+#include <cstdlib>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace topo::check {
 
 namespace {
 
-/// Bare tool name + platform exe suffix. PATH resolution (execvp /
-/// CreateProcess) finds the staged launcher, exactly as the transpile
-/// extractor path does.
-std::string toolName() {
+/// Bare launcher name for the staged tool. On Windows the staged launcher is
+/// `topo-extract-typescript.cmd` (see topo-check/extractor/CMakeLists.txt); on
+/// POSIX it is the extensionless shim. (NOT `+ ExeSuffix`: the launcher is a
+/// `.cmd`, never a `.exe`.)
+std::string launcherName() {
     return std::string("topo-extract-typescript") +
-           std::string(platform::ExeSuffix);
+           (platform::IsWindows ? ".cmd" : "");
+}
+
+/// Build the (executable, args) pair PipedProcess::start should spawn. A
+/// `.cmd` is a batch script, not an executable image: CreateProcess (and
+/// reproc's PATH lookup) can only resolve/launch a `.exe`, so on Windows the
+/// launcher must be run through the command interpreter as `cmd.exe /c
+/// <launcher.cmd>` (cmd does its own PATH search). On POSIX the bare launcher
+/// name resolves via execvp, exactly as the transpile extractor path does.
+std::pair<std::string, std::vector<std::string>> spawnSpec() {
+    if (platform::IsWindows) {
+        const char* comspec = std::getenv("ComSpec");
+        std::string interpreter = comspec ? comspec : "cmd.exe";
+        return {interpreter, {"/c", launcherName()}};
+    }
+    return {launcherName(), {}};
 }
 
 /// Spawn the tool, write `request`, close stdin, drain stdout to EOF.
@@ -43,7 +63,8 @@ std::string toolName() {
 /// spawned or produced no output.
 std::optional<std::string> runTool(const std::string& request) {
     platform::PipedProcess proc;
-    if (!proc.start(toolName(), {})) {
+    auto [exe, args] = spawnSpec();
+    if (!proc.start(exe, args)) {
         return std::nullopt;
     }
     if (!proc.write(request.data(), request.size())) {
@@ -125,18 +146,32 @@ std::vector<HostSymbol> TypeScriptASTSymbolExtractor::extractSymbols(
     for (const auto& entry : *it) {
         if (!entry.is_object()) continue;
         HostSymbol sym;
-        sym.qualifiedName = entry.value("qualifiedName", std::string());
-        sym.simpleName = entry.value("simpleName", std::string());
-        sym.kind = kindFromString(entry.value("kind", std::string("function")));
-        sym.file = entry.value("file", filePath);
-        sym.line = entry.value("line", 0);
-        sym.isStatic = entry.value("isStatic", false);
-        sym.enclosingClass = entry.value("enclosingClass", std::string());
-        // returnType / paramTypes are left empty — the regex extractor does
-        // not populate them either, and L1 completeness keys on names.
-        if (auto v = entry.find("visibility");
-            v != entry.end() && v->is_string()) {
-            sym.hostVisibility = visibilityFromString(v->get<std::string>());
+        // nlohmann `value()` returns the default only when the key is ABSENT;
+        // a key that is present but of a mismatched JSON type makes value()
+        // call get<T>() and throw json::type_error (e.g. numeric
+        // "qualifiedName", string "line", string "isStatic"). One such throw
+        // would escape this loop and, via the topo-check worker's catch(...),
+        // silently drop the whole completeness check (a false-clean pass).
+        // Wrap the per-entry body so a single malformed entry is skipped
+        // rather than abandoning the entire file's check — mirroring the
+        // is_string() guard already applied to "visibility" below.
+        try {
+            sym.qualifiedName = entry.value("qualifiedName", std::string());
+            sym.simpleName = entry.value("simpleName", std::string());
+            sym.kind =
+                kindFromString(entry.value("kind", std::string("function")));
+            sym.file = entry.value("file", filePath);
+            sym.line = entry.value("line", 0);
+            sym.isStatic = entry.value("isStatic", false);
+            sym.enclosingClass = entry.value("enclosingClass", std::string());
+            // returnType / paramTypes are left empty — the regex extractor does
+            // not populate them either, and L1 completeness keys on names.
+            if (auto v = entry.find("visibility");
+                v != entry.end() && v->is_string()) {
+                sym.hostVisibility = visibilityFromString(v->get<std::string>());
+            }
+        } catch (const nlohmann::json::exception&) {
+            continue; // type-mismatched field → skip this entry, keep the rest
         }
         result.push_back(std::move(sym));
     }
