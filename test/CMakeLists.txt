@@ -43,7 +43,7 @@ topo_set_compiler_flags(topo-lang-typescript-tests)
 # enumeration cap.
 gtest_discover_tests(topo-lang-typescript-tests
     DISCOVERY_TIMEOUT 30
-    PROPERTIES LABELS "toolchain;typescript;lang-typescript" TIMEOUT 60)
+    PROPERTIES LABELS "toolchain\;typescript\;lang-typescript" TIMEOUT 60)
 
 # --- CLI input-trust unit tests (per-value backendExtras validation) ---
 # Spawns topo-build-typescript with hand-crafted request JSON files and
@@ -69,7 +69,7 @@ if(TARGET topo-build-typescript)
     topo_set_compiler_flags(topo-build-typescript-input-trust-tests)
     gtest_discover_tests(topo-build-typescript-input-trust-tests
         DISCOVERY_TIMEOUT 30
-        PROPERTIES LABELS "toolchain;typescript;lang-typescript" TIMEOUT 30)
+        PROPERTIES LABELS "toolchain\;typescript\;lang-typescript" TIMEOUT 30)
 endif()
 
 # --- Checker E2E tests (skipped in standalone) ---
