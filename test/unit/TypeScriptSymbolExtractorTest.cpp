@@ -174,6 +174,23 @@ TEST_F(TypeScriptSymbolExtractorTest, ExportConstLetVar) {
     }
 }
 
+TEST_F(TypeScriptSymbolExtractorTest, ExportMultiDeclarator) {
+    // One symbol per declarator (matches the AST extractor). Top-level-comma
+    // aware: the comma inside `pt(1, 2)` is not a declarator separator.
+    std::string src =
+        "export const a = 1, b = 2;\n"
+        "export let c = pt(1, 2), d = 3;\n"
+        "export var e, f;\n";
+    auto syms = extract(src);
+    ASSERT_EQ(syms.size(), 6u);
+    for (const char* n : {"a", "b", "c", "d", "e", "f"}) {
+        const auto* s = find(syms, n);
+        ASSERT_NE(s, nullptr) << "missing declarator " << n;
+        EXPECT_EQ(s->kind, HostSymbolKind::Variable);
+        EXPECT_EQ(s->qualifiedName, n);
+    }
+}
+
 TEST_F(TypeScriptSymbolExtractorTest, ExportList_GroupedAndAliased) {
     std::string src =
         "function _a() {}\n"

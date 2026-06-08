@@ -571,3 +571,44 @@ test("symbols mode: interface and type alias map to dedicated kinds", () => {
         PI: "variable",
     });
 });
+
+test("symbols mode: multi-declarator export emits one Variable per declarator", () => {
+    // `export const a = 1, b = 2;` is two distinct bound names sharing one
+    // VariableStatement. The AST walk emits one `variable` HostSymbol per
+    // declarator (the lossless, more faithful behavior) — NOT a single
+    // first-only symbol. CompletenessCheck matches each HostSymbol by
+    // name independently (no per-statement grouping or one-per-line cap),
+    // so emitting both `a` and `b` means the .topo must declare both, exactly
+    // as if they were written `export const a = 1; export const b = 2;`.
+    //
+    // NOTE: the L1 regex TypeScriptSymbolExtractor (topo-v8
+    // lib/Check/Extract/TypeScriptSymbolExtractor.cpp, `exportVarRegex`)
+    // still captures only the FIRST declarator, so it diverges here. That
+    // extractor is the AST extractor's fallback; reconciling it to also emit
+    // all declarators is tracked separately (it lives in another package).
+    const res = runSymbols(
+        "export const a = 1, b = 2;\n" +
+        "export let c = 3, d = 4, e = 5;\n");
+    const vars = res.symbols
+        .filter((s) => s.kind === "variable")
+        .map((s) => s.simpleName)
+        .sort();
+    assert.deepEqual(vars, ["a", "b", "c", "d", "e"]);
+    for (const s of res.symbols) {
+        assert.equal(s.kind, "variable");
+        assert.equal(s.qualifiedName, s.simpleName);
+        assert.equal(s.visibility, "public");
+        assert.equal(s.enclosingClass, "");
+    }
+});
+
+test("symbols mode: multi-declarator export inside a namespace prefixes each name", () => {
+    // Per-declarator emission must carry the namespace qualifier on every
+    // bound name, the same way a single-declarator export does.
+    const res = runSymbols(
+        "export namespace Cfg {\n" +
+        "  export const host = \"localhost\", port = 8080;\n" +
+        "}\n");
+    const names = res.symbols.map((s) => s.qualifiedName).sort();
+    assert.deepEqual(names, ["Cfg.host", "Cfg.port"]);
+});
