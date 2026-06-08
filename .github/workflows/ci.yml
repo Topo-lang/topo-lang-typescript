@@ -68,7 +68,12 @@ jobs:
         uses: actions/cache@v5
         with:
           path: ${{ runner.temp }}/topo-install
-          key: topo-core-${{ env.TOPO_CORE_REF }}-lang-${{ env.TOPO_LANG_REF }}-v8-${{ env.TOPO_V8_REF }}-${{ matrix.os }}-v4
+          # v5: topo-v8's regex symbol extractor now emits one symbol per
+          # declarator for multi-declarator exports. The install is keyed on the
+          # literal ref `main`, so a topo-v8 behavior change does not invalidate
+          # it on its own — bump the suffix to force a rebuild that picks up the
+          # fix (else the stale cached topo-v8 fails ExportMultiDeclarator).
+          key: topo-core-${{ env.TOPO_CORE_REF }}-lang-${{ env.TOPO_LANG_REF }}-v8-${{ env.TOPO_V8_REF }}-${{ matrix.os }}-v5
 
       - name: Build & install topo-core (zero-LLVM, lang-less)
         if: steps.topo-cache.outputs.cache-hit != 'true'
