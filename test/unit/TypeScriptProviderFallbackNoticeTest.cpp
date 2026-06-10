@@ -57,11 +57,15 @@ TEST(TypeScriptProviderFallbackNotice, RegexFallbackPrintsOnceVisibly) {
         << "regex fallback must announce itself by default, got: " << firstErr;
     EXPECT_NE(firstErr.find("regex-grade"), std::string::npos);
 
-    // Once per process: a second fallback selection stays quiet.
+    // Once per process: a second fallback selection must not repeat the
+    // NOTICE. Anchor on the notice's distinctive phrase, not the tool name —
+    // the availability probe's own spawn failure may mention the tool on
+    // some platforms (Windows cmd prints "'topo-extract-typescript' is not
+    // recognized ..." on every probe), and that noise is not ours to gate.
     testing::internal::CaptureStderr();
     auto second = provider->createSymbolExtractor();
     std::string secondErr = testing::internal::GetCapturedStderr();
     ASSERT_NE(second, nullptr);
-    EXPECT_EQ(secondErr.find("topo-extract-typescript"), std::string::npos)
+    EXPECT_EQ(secondErr.find("regex-grade"), std::string::npos)
         << "notice must not repeat on every extraction, got: " << secondErr;
 }
