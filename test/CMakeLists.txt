@@ -174,3 +174,20 @@ if(TARGET topo-extract-typescript-stage AND TARGET topo-build-typescript)
     set_tests_properties(ts-tool-smoke.topo-extract-typescript PROPERTIES
         LABELS "toolchain;typescript;ts-tool-smoke" TIMEOUT 60)
 endif()
+
+# --- _toolchain.mjs resolution unit tests (no real toolchain needed) ---
+# Stages fake binaries in temp dirs and pins every resolution tier
+# (TOPO_BIN_DIR flat/nested/multi-config, PATH, stale-env fall-through),
+# including the Windows story (.exe suffix + PATHEXT executability) on
+# the windows-2022 lane — previously the mjs locator had no automated
+# surface on any OS.
+find_program(NODE_EXECUTABLE node)
+if(NODE_EXECUTABLE)
+    add_test(
+        NAME ts-toolchain-resolution
+        COMMAND ${NODE_EXECUTABLE} --test test_toolchain_resolution.test.mjs
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../runtime/test
+    )
+    set_tests_properties(ts-toolchain-resolution PROPERTIES
+        LABELS "toolchain;typescript" TIMEOUT 60)
+endif()
