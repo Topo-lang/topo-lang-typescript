@@ -24,6 +24,7 @@ add_executable(topo-lang-typescript-tests
     unit/TypeScriptImportExtractorTest.cpp
     unit/TypeScriptCallSiteExtractorTest.cpp
     unit/TypeScriptSafeCatalogTest.cpp
+    unit/TypeScriptProviderFallbackNoticeTest.cpp
     unit/V8CodegenGenericsTest.cpp
 )
 # TopoTypeScriptPlugin PUBLIC-propagates TopoTypeScriptAnalysis directly,
