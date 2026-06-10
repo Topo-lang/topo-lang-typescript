@@ -76,7 +76,7 @@ jobs:
           # literal ref `main`, so a topo-v8 behavior change does not invalidate
           # it on its own — bump the suffix to force a rebuild that picks up the
           # fix (else the stale cached topo-v8 fails ExportMultiDeclarator).
-          key: topo-core-${{ env.TOPO_CORE_REF }}-lang-${{ env.TOPO_LANG_REF }}-v8-${{ env.TOPO_V8_REF }}-${{ matrix.os }}-v5
+          key: topo-core-${{ env.TOPO_CORE_REF }}-lang-${{ env.TOPO_LANG_REF }}-v8-${{ env.TOPO_V8_REF }}-${{ matrix.os }}-v6
 
       - name: Build & install topo-core (zero-LLVM, lang-less)
         if: steps.topo-cache.outputs.cache-hit != 'true'
