@@ -42,6 +42,18 @@ std::unique_ptr<SymbolExtractor> TypeScriptAnalysisProvider::createSymbolExtract
     if (TypeScriptASTSymbolExtractor::isAvailable()) {
         return std::make_unique<TypeScriptASTSymbolExtractor>();
     }
+    // No-silent-degradation: the regex fallback changes verdict QUALITY
+    // (renamed exports / CJS module.exports / ambient filtering become
+    // heuristic), so the switch must be visible by default — once per
+    // process, not only under --verbose.
+    static bool warnedOnce = false;
+    if (!warnedOnce) {
+        warnedOnce = true;
+        std::cerr << "topo-check: topo-extract-typescript not found — falling back to "
+                     "regex-grade TypeScript symbol extraction (export renaming / CJS "
+                     "exports resolved heuristically). Stage the Node extractor for "
+                     "exact results.\n";
+    }
     return std::make_unique<TypeScriptSymbolExtractor>();
 }
 
