@@ -73,13 +73,60 @@ if(TARGET topo-build-typescript)
         PROPERTIES LABELS "toolchain\;typescript\;lang-typescript" TIMEOUT 30)
 endif()
 
-# --- Checker E2E tests (skipped in standalone) ---
-# Requires TopoCheckRunner (owned by topo-cli, not exported by topo-core
-# today — deferred to a later cleanup of the topo-core split). Skipped
-# here; continues to run from the monorepo / from topo-cli once that
-# repo lifts.
-message(STATUS "topo-lang-typescript tests: checker-e2e suite is gated off "
-               "in standalone mode (TopoCheckRunner not exported by topo-core).")
+# --- Checker E2E tests ---
+# Completeness + containment (incl. the TypeScriptContainmentL2 deep
+# cases) + visibility + purity + stage-isolation + import-path + the
+# AST-based L1 symbol-extractor e2e. Links TopoCheckRunner, which
+# topo-cli exports (topo::cli::TopoCheckRunner). When topo-cli's cmake
+# config is not on CMAKE_PREFIX_PATH the suite skips cleanly with a
+# STATUS message (the standalone default; CI's verify-l2 job installs
+# topo-cli to enable it). The L2 deep cases drive TsServerBridge —
+# typescript-language-server must be on PATH or the suite emits a
+# single suite-level GTEST_SKIP. TIMEOUT 180: each L2 case boots its
+# own tsserver instance, which dominates the 60s default on CI runners.
+find_package(topo-cli CONFIG QUIET)
+if(TARGET topo::cli::TopoCheckRunner)
+    add_executable(topo-lang-typescript-check-tests
+        e2e/TestMain.cpp
+        e2e/TypeScriptCompletenessTest.cpp
+        e2e/TypeScriptContainmentTest.cpp
+        e2e/TypeScriptVisibilityTest.cpp
+        e2e/TypeScriptPurityTest.cpp
+        e2e/TypeScriptStageIsolationTest.cpp
+        e2e/TypeScriptImportPathTest.cpp
+        e2e/TypeScriptASTSymbolExtractorTest.cpp
+    )
+    target_link_libraries(topo-lang-typescript-check-tests PRIVATE
+        topo::cli::TopoCheckRunner TopoTypeScriptPlugin
+        GTest::gtest
+    )
+    target_compile_definitions(topo-lang-typescript-check-tests PRIVATE
+        TOPO_TEST_FIXTURES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures/check"
+    )
+    # Hand the test the staged topo-extract-typescript directory so
+    # TestMain.cpp can prepend it to PATH: the TypeScript check provider
+    # then resolves the AST-based L1 symbol extractor by bare name (the
+    # same contract the transpile path uses). Gating on
+    # topo-extract-typescript-stage ensures the launcher was staged before
+    # the test executes (node_modules is populated by `npm install` — the
+    # CI workflow's dedicated post-build step, or manually in local/dev
+    # builds). Without the staged tool the provider falls back to the
+    # regex extractor and the AST e2e suite emits a suite-level skip.
+    if(TARGET topo-build-typescript AND TARGET topo-extract-typescript-stage)
+        target_compile_definitions(topo-lang-typescript-check-tests PRIVATE
+            TOPO_EXTRACT_TS_TOOL_DIR="$<TARGET_FILE_DIR:topo-build-typescript>"
+        )
+        add_dependencies(topo-lang-typescript-check-tests topo-extract-typescript-stage)
+    endif()
+    topo_set_compiler_flags(topo-lang-typescript-check-tests)
+    gtest_discover_tests(topo-lang-typescript-check-tests
+        DISCOVERY_TIMEOUT 30
+        PROPERTIES LABELS "toolchain\;typescript\;checker\;lang-typescript" TIMEOUT 180)
+else()
+    message(STATUS "topo-lang-typescript tests: checker-e2e suite is gated off "
+                   "in standalone mode (topo-cli config providing TopoCheckRunner "
+                   "not on CMAKE_PREFIX_PATH).")
+endif()
 
 # --- Functional E2E tests (skipped in standalone) ---
 # Requires the topo-build CLI (shipped by topo-core, not in topo-core's

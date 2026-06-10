@@ -14,9 +14,12 @@ concurrency:
 env:
   # Pin the upstream topo-core / topo-lang / topo-v8 refs this build is
   # tested against. Bump whenever a new compatible tag ships.
+  # TOPO_CLI_REF pins the downstream topo-cli checkout the verify-l2 job
+  # builds for its TopoCheckRunner export (checker-e2e suite link dep).
   TOPO_CORE_REF: main
   TOPO_LANG_REF: main
   TOPO_V8_REF: main
+  TOPO_CLI_REF: main
 
 jobs:
   build-and-test:
@@ -73,7 +76,7 @@ jobs:
           # literal ref `main`, so a topo-v8 behavior change does not invalidate
           # it on its own — bump the suffix to force a rebuild that picks up the
           # fix (else the stale cached topo-v8 fails ExportMultiDeclarator).
-          key: topo-core-${{ env.TOPO_CORE_REF }}-lang-${{ env.TOPO_LANG_REF }}-v8-${{ env.TOPO_V8_REF }}-${{ matrix.os }}-v5
+          key: topo-core-${{ env.TOPO_CORE_REF }}-lang-${{ env.TOPO_LANG_REF }}-v8-${{ env.TOPO_V8_REF }}-${{ matrix.os }}-v6
 
       - name: Build & install topo-core (zero-LLVM, lang-less)
         if: steps.topo-cache.outputs.cache-hit != 'true'
@@ -267,3 +270,220 @@ jobs:
               -DCMAKE_TOOLCHAIN_FILE="${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
           cmake --build build
           ./build/smoke
+
+  # ── Checker-e2e + L2 deep-containment verify (tsserver) ──────────
+  # build-and-test (above) never builds the checker-e2e suite: it links
+  # TopoCheckRunner, exported by topo-cli — a package downstream of this
+  # one — so the default matrix carries no reason to build it. This job
+  # adds that surface on one platform: topo-cli's only upstreams
+  # (topo-core + topo-lang) are already in the same prefix the default
+  # job builds, so one extra build+install step unlocks the suite.
+  # typescript-language-server is installed so the TypeScriptContainmentL2
+  # deep cases RUN through the real TsServerBridge instead of GTEST_SKIP
+  # (a skip is not a pass); the staged topo-extract-typescript keeps the
+  # AST symbol-extractor e2e suite (same binary) live too. The final step
+  # re-runs the suite and converts any skip into a hard failure,
+  # mirroring the all-skip→fail guard in topo-lsp's CI.
+  verify-l2:
+    name: verify (checker e2e + tsserver L2) (ubuntu-24.04)
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install build deps (linux)
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ninja-build
+
+      - name: Set up Node.js 22 (tsserver host + topo-extract-typescript)
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+
+      # typescript-language-server is the binary TsServerBridge probes for;
+      # it resolves the `typescript` package (tsserver proper) from the
+      # global install beside it.
+      - name: Install typescript-language-server (TsServerBridge host server)
+        run: |
+          npm i -g typescript-language-server typescript
+          command -v typescript-language-server
+          typescript-language-server --version
+
+      - name: Export GHA cache env (for vcpkg x-gha backend)
+        uses: actions/github-script@v8
+        with:
+          script: |
+            core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
+            core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
+            core.exportVariable('ACTIONS_RESULTS_URL', process.env.ACTIONS_RESULTS_URL || '');
+
+      - name: Setup vcpkg
+        uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgGitCommitId: "56bb2411609227288b70117ead2c47585ba07713"
+
+      # Same key as build-and-test's ubuntu leg — this job consumes the
+      # identical upstream install (topo-cli goes to a separate, uncached
+      # prefix below, so the cached content is unchanged).
+      - name: Cache upstream topo install
+        id: topo-cache
+        uses: actions/cache@v5
+        with:
+          path: ${{ runner.temp }}/topo-install
+          key: topo-core-${{ env.TOPO_CORE_REF }}-lang-${{ env.TOPO_LANG_REF }}-v8-${{ env.TOPO_V8_REF }}-ubuntu-24.04-v6
+
+      - name: Build & install topo-core (zero-LLVM, lang-less)
+        if: steps.topo-cache.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth 1 --branch "${TOPO_CORE_REF}" \
+              https://github.com/topo-lang/topo-core.git \
+              "${RUNNER_TEMP}/topo-core-src"
+          cmake -S "${RUNNER_TEMP}/topo-core-src" \
+                -B "${RUNNER_TEMP}/topo-core-build" \
+                -G Ninja \
+                -DCMAKE_BUILD_TYPE=Release \
+                -DCMAKE_INSTALL_PREFIX="${RUNNER_TEMP}/topo-install" \
+                -DCMAKE_TOOLCHAIN_FILE="${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake" \
+                -DTOPO_ENABLE_LLVM=OFF
+          cmake --build "${RUNNER_TEMP}/topo-core-build" --target install
+
+      - name: Build & install topo-lang
+        if: steps.topo-cache.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth 1 --branch "${TOPO_LANG_REF}" \
+              https://github.com/topo-lang/topo-lang.git \
+              "${RUNNER_TEMP}/topo-lang-src"
+          cmake -S "${RUNNER_TEMP}/topo-lang-src" \
+                -B "${RUNNER_TEMP}/topo-lang-build" \
+                -G Ninja \
+                -DCMAKE_BUILD_TYPE=Release \
+                -DCMAKE_INSTALL_PREFIX="${RUNNER_TEMP}/topo-install" \
+                -DCMAKE_PREFIX_PATH="${RUNNER_TEMP}/topo-install" \
+                -DCMAKE_TOOLCHAIN_FILE="${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+          cmake --build "${RUNNER_TEMP}/topo-lang-build" --target install
+
+      - name: Re-install topo-core (with-lang)
+        if: steps.topo-cache.outputs.cache-hit != 'true'
+        run: |
+          cmake -S "${RUNNER_TEMP}/topo-core-src" \
+                -B "${RUNNER_TEMP}/topo-core-build" \
+                -DCMAKE_PREFIX_PATH="${RUNNER_TEMP}/topo-install"
+          cmake --build "${RUNNER_TEMP}/topo-core-build" --target install
+
+      - name: Build & install topo-v8
+        if: steps.topo-cache.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth 1 --branch "${TOPO_V8_REF}" \
+              https://github.com/topo-lang/topo-v8.git \
+              "${RUNNER_TEMP}/topo-v8-src"
+          cmake -S "${RUNNER_TEMP}/topo-v8-src" \
+                -B "${RUNNER_TEMP}/topo-v8-build" \
+                -G Ninja \
+                -DCMAKE_BUILD_TYPE=Release \
+                -DCMAKE_INSTALL_PREFIX="${RUNNER_TEMP}/topo-install" \
+                -DCMAKE_PREFIX_PATH="${RUNNER_TEMP}/topo-install" \
+                -DCMAKE_TOOLCHAIN_FILE="${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+          cmake --build "${RUNNER_TEMP}/topo-v8-build" --target install
+
+      - name: Stage topo-v8 contract-pass tools (deterministic)
+        # Same contract as build-and-test: the Node tools live in topo-v8's
+        # source tree (not its install set) and the install prefix is cached
+        # while this tree is not — stage them independently so the
+        # topo-extract-typescript launcher (the check provider's AST L1
+        # extractor) is present on every run.
+        run: |
+          set -euo pipefail
+          if [ ! -d "${RUNNER_TEMP}/topo-v8-tools/visibility-transform" ]; then
+            git clone --depth 1 --branch "${TOPO_V8_REF}" --filter=blob:none --sparse \
+                https://github.com/topo-lang/topo-v8.git "${RUNNER_TEMP}/topo-v8-tools-src"
+            git -C "${RUNNER_TEMP}/topo-v8-tools-src" sparse-checkout set tools
+            mkdir -p "${RUNNER_TEMP}/topo-v8-tools"
+            cp -R "${RUNNER_TEMP}/topo-v8-tools-src/tools/." "${RUNNER_TEMP}/topo-v8-tools/"
+          fi
+          test -d "${RUNNER_TEMP}/topo-v8-tools/visibility-transform"
+
+      # Uncached on purpose: topo-cli is a thin router + small static lib
+      # (minutes to build with the vcpkg binary cache), and an always-fresh
+      # build tracks its main without a second cache key to bump. Plugins
+      # auto-detect to OFF (none on this prefix) — the checker-e2e suite
+      # links only the TopoCheckRunner static lib and registers this repo's
+      # plugin itself via TestMain. Profile CLI off to keep the installed
+      # config's find_dependency chain minimal.
+      - name: Build & install topo-cli (TopoCheckRunner export)
+        run: |
+          git clone --depth 1 --branch "${TOPO_CLI_REF}" \
+              https://github.com/topo-lang/topo-cli.git \
+              "${RUNNER_TEMP}/topo-cli-src"
+          cmake -S "${RUNNER_TEMP}/topo-cli-src" \
+                -B "${RUNNER_TEMP}/topo-cli-build" \
+                -G Ninja \
+                -DCMAKE_BUILD_TYPE=Release \
+                -DCMAKE_INSTALL_PREFIX="${RUNNER_TEMP}/topo-cli-install" \
+                -DCMAKE_PREFIX_PATH="${RUNNER_TEMP}/topo-install" \
+                -DCMAKE_TOOLCHAIN_FILE="${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake" \
+                -DTOPO_CLI_ENABLE_PROFILE=OFF
+          cmake --build "${RUNNER_TEMP}/topo-cli-build" --target install
+
+      - name: Configure topo-lang-typescript (tests ON, topo-cli on the prefix)
+        run: |
+          if [ ! -d "${RUNNER_TEMP}/topo-v8-tools/visibility-transform" ]; then
+            echo "::error::topo-v8-tools missing (visibility-transform absent) — contract-pass transforms would silently skip"
+            exit 1
+          fi
+          cmake -S . -B build -G Ninja \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DCMAKE_PREFIX_PATH="${RUNNER_TEMP}/topo-install;${RUNNER_TEMP}/topo-cli-install" \
+              -DCMAKE_TOOLCHAIN_FILE="${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake" \
+              -DTOPO_LANG_TYPESCRIPT_BUILD_TESTS=ON \
+              -DTOPO_V8_TOOLS_DIR="${RUNNER_TEMP}/topo-v8-tools" \
+              -DTOPO_LANG_TYPESCRIPT_REQUIRE_CONTRACT_PASSES=ON
+
+      - name: Build
+        run: cmake --build build
+
+      - name: npm install topo-extract-typescript (build-dir copy)
+        # The staged extractor tool body needs node_modules/typescript so
+        # the check provider's AST L1 extractor (spawned by the checker-e2e
+        # binary via the staged bare-name launcher) can import 'typescript'
+        # at test time. Same contract as build-and-test's step.
+        run: |
+          set -euo pipefail
+          dir="build/topo-build/topo-extract-typescript-tool"
+          test -f "${dir}/package.json" || { echo "::error::expected staged extractor package.json missing: ${dir}/package.json"; exit 1; }
+          ( cd "${dir}" && npm install --omit=dev --no-audit --no-fund )
+
+      - name: Run checker-e2e suite
+        run: |
+          # --no-tests=error: if the topo-cli gate silently failed and the
+          # checker suite was never registered, the job FAILS rather than
+          # greening on zero tests.
+          ctest --test-dir build -L checker --output-on-failure --timeout 180 --no-tests=error
+
+      # The checker suite passes ctest even when its gtest cases
+      # GTEST_SKIP() (typescript-language-server or the staged extractor
+      # absent) — "Passed" can mean "every L2 case skipped". Re-run the
+      # binary and FAIL on any skip or zero passes, converting a silent
+      # all-skip into a hard failure (skip != pass).
+      - name: Assert L2 deep containment ran (skip != pass)
+        run: |
+          # set +e: handle errors explicitly — a grep no-match inside a
+          # command substitution would otherwise abort the step silently.
+          set +e
+          exe=$(find build -type f -name "topo-lang-typescript-check-tests" 2>/dev/null | head -1)
+          if [ -z "${exe}" ]; then
+            echo "::error::topo-lang-typescript-check-tests not built — topo-cli prefix missing at configure time?"; exit 1
+          fi
+          out=$("${exe}" 2>&1); rc=$?
+          printf '%s\n' "${out}" | tail -20
+          passed=$(printf '%s\n' "${out}" | grep -oE '\[  PASSED  \] [0-9]+ test' | grep -oE '[0-9]+' | tail -1)
+          skipped=$(printf '%s\n' "${out}" | grep -oE '\[  SKIPPED \] [0-9]+ test' | grep -oE '[0-9]+' | tail -1)
+          [ -z "${passed}" ] && passed=0
+          [ -z "${skipped}" ] && skipped=0
+          echo "topo-lang-typescript-check-tests: ${passed} PASSED, ${skipped} skipped (exit ${rc})"
+          if [ "${rc}" -ne 0 ]; then
+            echo "::error::checker-e2e suite failed (exit ${rc})"; exit 1
+          fi
+          if [ "${skipped}" -gt 0 ] || [ "${passed}" -lt 1 ]; then
+            echo "::error::L2 deep containment (or the AST extractor e2e) did not RUN — typescript-language-server / staged extractor missing → GTEST_SKIP (skip != pass)"; exit 1
+          fi
