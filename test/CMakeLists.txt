@@ -131,7 +131,7 @@ endif()
 
 # --- _toolchain.mjs resolution unit tests (no real toolchain needed) ---
 # Stages fake binaries in temp dirs and pins every resolution tier
-# (TOPO_BIN_DIR flat/nested/multi-config, PATH, stale-env fall-through),
+# (TOPO_BIN_DIR flat/nested/multi-config, PATH, strict-override raise),
 # including the Windows story (.exe suffix + PATHEXT executability) on
 # the windows-2022 lane — previously the mjs locator had no automated
 # surface on any OS.

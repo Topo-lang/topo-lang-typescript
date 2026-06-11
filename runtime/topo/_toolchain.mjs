@@ -2,15 +2,21 @@
  * Locate the built Topo toolchain binaries.
  *
  * topo-app is a product layer that *consumes* the existing toolchain; it
- * never reimplements parsing or checking. Resolution order (mirrors the
- * Java runtime's Toolchain.java):
+ * never reimplements parsing or checking. Resolution order — the canonical
+ * policy shared with the Python (_toolchain.py) and Java (Toolchain.java)
+ * runtimes; keep the three locators in lockstep:
  *
- *   1. explicit env var (TOPO_BIN_DIR) — used by tests and CI; may point
- *      at a build tree or straight at a bin directory
+ *   1. explicit env var (TOPO_BIN_DIR) — STRICT: when set, the binary must
+ *      resolve under it (a build tree or straight at a bin directory) or
+ *      the locator throws an actionable error listing the probed paths.
+ *      No silent fall-through: the override is the CI/test pinning
+ *      contract, and degrading to PATH would silently swap the binary
+ *      under test.
  *   2. PATH lookup for the bare binary name — the layout `cmake --install`,
  *      Homebrew, and the per-package installs ship into, and the only
  *      resolution that works outside a source checkout
- *   3. the project `build/` tree of this checkout
+ *   3. known sibling build trees of this checkout, fixed order,
+ *      first-hit-wins: `build/`, then `build-asan/`
  *
  * Windows portability (ported from _toolchain.py / Toolchain.java): every
  * probe transparently tries the `.exe` suffix and the multi-config
@@ -21,9 +27,9 @@
  *
  * `build-no-llvm/` is deliberately NOT searched: that tree mis-resolves
  * this project's suites and causes spurious parse failures (a tracked
- * environmental issue). Only the freshly built `build/` binaries are
- * trusted. A clear error is raised if nothing yields the binary, because
- * silently degrading a correctness tool would defeat the point.
+ * environmental issue). Only freshly built trees are trusted. A clear
+ * error is raised if nothing yields the binary, because silently
+ * degrading a correctness tool would defeat the point.
  */
 
 import { accessSync, constants, statSync } from "node:fs";
@@ -35,9 +41,9 @@ const _HERE = dirname(fileURLToPath(import.meta.url));
 // the repository root is three parents up.
 const _REPO_ROOT = resolve(_HERE, "..", "..", "..");
 
-// Only the LLVM-enabled `build/` tree. `build-no-llvm` is intentionally
+// Fixed probe order, first hit wins. `build-no-llvm` is intentionally
 // excluded — it is stale and mis-resolves, producing spurious failures.
-const _BUILD_DIRS = ["build"];
+const _BUILD_DIRS = ["build", "build-asan"];
 
 const _IS_WINDOWS = process.platform === "win32";
 
@@ -134,19 +140,27 @@ function _findOnPath(bare) {
 }
 
 function _find(rel) {
-  // 1. Explicit override — probed first; a stale/incomplete TOPO_BIN_DIR
-  //    falls through to the remaining tiers rather than failing outright.
+  // 1. Explicit override — STRICT: when set, the binary resolves under it
+  //    or this throws; falling through would silently swap the binary
+  //    under test (see the header block).
   const env = process.env.TOPO_BIN_DIR;
   if (env) {
     const hit = _resolveIn(env, rel);
     if (hit) return hit;
+    throw new Error(
+      `TOPO_BIN_DIR is set ('${env}') but '${rel}' does not resolve ` +
+        `under it. Probed:\n  ` +
+        _candidatePathsFor(env, rel).join("\n  ") +
+        `\nFix or unset TOPO_BIN_DIR — the override pins the binary and ` +
+        `never falls through to PATH.`
+    );
   }
 
   // 2. PATH probe — the installed-package layout.
   const onPath = _findOnPath(basename(rel));
   if (onPath) return onPath;
 
-  // 3. Sibling build tree of this checkout (dev convenience).
+  // 3. Sibling build trees of this checkout (dev convenience).
   for (const b of _BUILD_DIRS) {
     const hit = _resolveIn(join(_REPO_ROOT, b), rel);
     if (hit) return hit;
@@ -155,7 +169,8 @@ function _find(rel) {
   throw new Error(
     `could not locate '${rel}'. Install the Topo toolchain (so it is on ` +
       `PATH), build it (cmake --build build --target topo topo-check), or ` +
-      `set TOPO_BIN_DIR (must be the LLVM-enabled build, not build-no-llvm).`
+      `set TOPO_BIN_DIR (must be a current build tree — build-no-llvm is ` +
+      `excluded as stale).`
   );
 }
 
