@@ -20,6 +20,7 @@ endif()
 # --- Unit tests: L1 extractor fidelity on inline fixtures ---
 add_executable(topo-lang-typescript-tests
     unit/TestMain.cpp
+    unit/TypeScriptAnalysisProviderTest.cpp
     unit/TypeScriptSymbolExtractorTest.cpp
     unit/TypeScriptImportExtractorTest.cpp
     unit/TypeScriptCallSiteExtractorTest.cpp
