@@ -85,22 +85,40 @@ std::vector<std::string> TypeScriptAnalysisProvider::collectSourceFiles(
         fs::path(projectDir) / "src",
         fs::path(projectDir)};
     std::set<std::string> seen;
+    auto addIfSource = [&](const fs::path& p) {
+        const auto ext = p.extension().string();
+        if (ext == ".ts" || ext == ".tsx") {
+            std::string path = p.string();
+            if (seen.insert(path).second)
+                files.push_back(path);
+        }
+    };
     for (const auto& dir : searchDirs) {
-        if (!fs::exists(dir)) continue;
-        for (auto it = fs::recursive_directory_iterator(dir); it != fs::recursive_directory_iterator(); ++it) {
+        std::error_code ec;
+        // A search root that is a plain file (e.g. a regular file named
+        // `src` in the project root) must not reach
+        // recursive_directory_iterator: feeding it one throws ("Not a
+        // directory") and aborted the whole checker.
+        if (fs::is_regular_file(dir, ec)) {
+            addIfSource(dir);
+            continue;
+        }
+        if (!fs::exists(dir, ec)) continue;
+        // Non-throwing iteration (error_code construction + increment, the
+        // same pattern as the C++/Rust/Java providers): an unreadable or
+        // vanishing entry degrades to skipping it, never aborts.
+        fs::recursive_directory_iterator it(dir, ec);
+        if (ec) continue;
+        for (; it != fs::recursive_directory_iterator(); it.increment(ec)) {
+            if (ec) break;
             const auto& entry = *it;
             // Skip node_modules entirely.
-            if (entry.is_directory() && entry.path().filename() == "node_modules") {
+            if (entry.is_directory(ec) && entry.path().filename() == "node_modules") {
                 it.disable_recursion_pending();
                 continue;
             }
-            if (!entry.is_regular_file()) continue;
-            const auto ext = entry.path().extension().string();
-            if (ext == ".ts" || ext == ".tsx") {
-                std::string path = entry.path().string();
-                if (seen.insert(path).second)
-                    files.push_back(path);
-            }
+            if (!entry.is_regular_file(ec)) continue;
+            addIfSource(entry.path());
         }
     }
     std::sort(files.begin(), files.end());

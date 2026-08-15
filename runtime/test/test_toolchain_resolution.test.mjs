@@ -2,11 +2,12 @@
  * Unit tests for _toolchain.mjs binary resolution — no real toolchain
  * needed: fake `topo` binaries are staged in temp dirs and resolved via
  * each tier (TOPO_BIN_DIR flat + nested + multi-config subdir, then
- * PATH). This is the suite that proves the Windows story (`.exe`
- * suffix + PATHEXT executability stand-in for the POSIX execute bit) on
- * the windows-2022 lane, where the python/java siblings' probing has
- * long been covered but the mjs port previously had no automated
- * surface on any OS.
+ * PATH), plus the strict-override raise (TOPO_BIN_DIR set but
+ * unresolvable must throw, never fall through to PATH). This is the
+ * suite that proves the Windows story (`.exe` suffix + PATHEXT
+ * executability stand-in for the POSIX execute bit) on the windows-2022
+ * lane, where the python/java siblings' probing has long been covered
+ * but the mjs port previously had no automated surface on any OS.
  *
  * Runs identically on POSIX (suffix "" + chmod +x) so the tiers stay
  * pinned everywhere.
@@ -96,16 +97,22 @@ test("PATH tier resolves the bare name (installed layout)", () => {
   }
 });
 
-test("stale TOPO_BIN_DIR falls through to PATH instead of failing", () => {
-  const empty = mkdtempSync(join(tmpdir(), "topo-mjs-stale-"));
-  const dir = mkdtempSync(join(tmpdir(), "topo-mjs-fallthrough-"));
+test("strict TOPO_BIN_DIR: unresolvable override throws, never falls through to PATH", () => {
+  const empty = mkdtempSync(join(tmpdir(), "topo-mjs-strict-"));
+  const dir = mkdtempSync(join(tmpdir(), "topo-mjs-onpath-"));
   try {
-    const staged = stageFakeTopo(dir, "topo");
-    const hit = withEnv(
-      { TOPO_BIN_DIR: empty, PATH: dir + delimiter + (process.env.PATH || "") },
-      () => topoBin(),
+    // A resolvable PATH must NOT rescue a set-but-unresolvable override:
+    // the override is the CI/test pinning contract, and falling through
+    // would silently swap the binary under test.
+    stageFakeTopo(dir, "topo");
+    assert.throws(
+      () =>
+        withEnv(
+          { TOPO_BIN_DIR: empty, PATH: dir + delimiter + (process.env.PATH || "") },
+          () => topoBin(),
+        ),
+      /TOPO_BIN_DIR/,
     );
-    assert.equal(hit, staged);
   } finally {
     rmSync(empty, { recursive: true, force: true });
     rmSync(dir, { recursive: true, force: true });

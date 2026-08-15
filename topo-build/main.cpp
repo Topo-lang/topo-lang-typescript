@@ -171,20 +171,38 @@ int main(int argc, char* argv[]) {
     std::vector<std::string> sourceFiles;
     for (const auto& src : req.sources) {
         fs::path srcPath(src);
-        if (fs::is_directory(srcPath)) {
-            for (auto it = fs::recursive_directory_iterator(srcPath);
-                 it != fs::recursive_directory_iterator(); ++it) {
+        std::error_code dirEc;
+        if (fs::is_directory(srcPath, dirEc)) {
+            // Non-throwing iteration (error_code construction + increment,
+            // the same pattern as the checker analysis provider): an
+            // unreadable or vanishing entry degrades to a diagnostic,
+            // never aborts.
+            std::error_code iterEc;
+            for (auto it = fs::recursive_directory_iterator(
+                     srcPath, fs::directory_options::skip_permission_denied,
+                     iterEc);
+                 !iterEc && it != fs::recursive_directory_iterator();
+                 it.increment(iterEc)) {
                 const auto& entry = *it;
-                if (entry.is_directory() && entry.path().filename() == "node_modules") {
+                if (entry.is_directory(iterEc) &&
+                    entry.path().filename() == "node_modules") {
                     it.disable_recursion_pending();
                     continue;
                 }
-                if (!entry.is_regular_file()) continue;
+                if (!entry.is_regular_file(iterEc)) continue;
                 if (isTypeScriptExtension(entry.path()) &&
                     !pathContainsNodeModules(entry.path())) {
                     sourceFiles.push_back(entry.path().string());
                 }
             }
+            if (iterEc) {
+                std::cerr << "warning: incomplete scan of "
+                          << srcPath.string() << ": " << iterEc.message()
+                          << "\n";
+            }
+        } else if (dirEc) {
+            std::cerr << "warning: cannot stat source entry "
+                      << srcPath.string() << ": " << dirEc.message() << "\n";
         } else if (isTypeScriptExtension(srcPath) &&
                    !pathContainsNodeModules(srcPath)) {
             sourceFiles.push_back(srcPath.string());
@@ -1303,7 +1321,8 @@ int main(int argc, char* argv[]) {
                          scanDir,
                          fs::directory_options::skip_permission_denied,
                          scanEc);
-                     it != fs::recursive_directory_iterator(); ++it) {
+                     !scanEc && it != fs::recursive_directory_iterator();
+                     it.increment(scanEc)) {
                     const fs::path& p = it->path();
                     std::error_code feEc;
                     if (!fs::is_regular_file(p, feEc)) continue;
@@ -1361,6 +1380,11 @@ int main(int argc, char* argv[]) {
                     row["js_file"] = p.filename().string();
                     row["sourcemap_path"] = mapPath.filename().string();
                     entries.push_back(std::move(row));
+                }
+                if (scanEc) {
+                    std::cerr << "warning: incomplete scan of "
+                              << scanDir.string() << ": "
+                              << scanEc.message() << "\n";
                 }
             }
 
