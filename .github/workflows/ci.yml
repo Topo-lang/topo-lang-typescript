@@ -271,19 +271,21 @@ jobs:
           cmake --build build
           ./build/smoke
 
-  # ── Checker-e2e + L2 deep-containment verify (tsserver) ──────────
-  # build-and-test (above) never builds the checker-e2e suite: it links
-  # TopoCheckRunner, exported by topo-cli — a package downstream of this
-  # one — so the default matrix carries no reason to build it. This job
-  # adds that surface on one platform: topo-cli's only upstreams
-  # (topo-core + topo-lang) are already in the same prefix the default
-  # job builds, so one extra build+install step unlocks the suite.
-  # typescript-language-server is installed so the TypeScriptContainmentL2
-  # deep cases RUN through the real TsServerBridge instead of GTEST_SKIP
-  # (a skip is not a pass); the staged topo-extract-typescript keeps the
-  # AST symbol-extractor e2e suite (same binary) live too. The final step
-  # re-runs the suite and converts any skip into a hard failure,
-  # mirroring the all-skip→fail guard in topo-lsp's CI.
+  # ── Checker-e2e + functional-e2e + L2 deep-containment verify ────
+  # build-and-test (above) never builds the checker-e2e or functional-e2e
+  # suites: both need topo-cli — a package downstream of this one — so
+  # the default matrix carries no reason to build them. This job adds
+  # both surfaces on one platform: topo-cli's only upstreams (topo-core +
+  # topo-lang) are already in the same prefix the default job builds, and
+  # a lib-only self-install lets topo-cli link the TypeScript plugin (the
+  # functional suite's integrated check spawns topo-check, which needs
+  # the plugin in-process). typescript-language-server is installed so
+  # the TypeScriptContainmentL2 deep cases RUN through the real
+  # TsServerBridge instead of GTEST_SKIP (a skip is not a pass); the
+  # staged topo-extract-typescript keeps the AST symbol-extractor e2e
+  # suite (same binary) live too. The final step re-runs the suites and
+  # converts any skip into a hard failure, mirroring the all-skip→fail
+  # guard in topo-lsp's CI.
   verify-l2:
     name: verify (checker e2e + tsserver L2) (ubuntu-24.04)
     runs-on: ubuntu-24.04
@@ -403,13 +405,30 @@ jobs:
           fi
           test -d "${RUNNER_TEMP}/topo-v8-tools/visibility-transform"
 
+      # The functional suite drives `topo-build`, whose integrated check
+      # spawns topo-check — and topo-check needs the TypeScript plugin
+      # registered IN-PROCESS to check TypeScript projects. topo-cli links
+      # plugins via find_package at ITS configure time, so this package must
+      # be installed on topo-cli's prefix before topo-cli builds. Lib only
+      # (tests OFF): the test suites build from the in-repo tree below.
+      - name: Build & install topo-lang-typescript (lib only)
+        run: |
+          cmake -S . -B "${RUNNER_TEMP}/lang-ts-lib-build" -G Ninja \
+                -DCMAKE_BUILD_TYPE=Release \
+                -DCMAKE_INSTALL_PREFIX="${RUNNER_TEMP}/lang-ts-install" \
+                -DCMAKE_PREFIX_PATH="${RUNNER_TEMP}/topo-install" \
+                -DCMAKE_TOOLCHAIN_FILE="${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake" \
+                -DTOPO_LANG_TYPESCRIPT_BUILD_TESTS=OFF
+          cmake --build "${RUNNER_TEMP}/lang-ts-lib-build" --target install
+
       # Uncached on purpose: topo-cli is a thin router + small static lib
       # (minutes to build with the vcpkg binary cache), and an always-fresh
-      # build tracks its main without a second cache key to bump. Plugins
-      # auto-detect to OFF (none on this prefix) — the checker-e2e suite
-      # links only the TopoCheckRunner static lib and registers this repo's
-      # plugin itself via TestMain. Profile CLI off to keep the installed
-      # config's find_dependency chain minimal.
+      # build tracks its main without a second cache key to bump. The
+      # TypeScript plugin resolves from the lang-ts install on the prefix
+      # (required by the functional suite's integrated-check spawn chain);
+      # the checker-e2e suite still links only the TopoCheckRunner static
+      # lib and registers this repo's plugin itself via TestMain. Profile
+      # CLI off to keep the installed config's find_dependency chain minimal.
       - name: Build & install topo-cli (TopoCheckRunner export)
         run: |
           git clone --depth 1 --branch "${TOPO_CLI_REF}" \
@@ -420,7 +439,7 @@ jobs:
                 -G Ninja \
                 -DCMAKE_BUILD_TYPE=Release \
                 -DCMAKE_INSTALL_PREFIX="${RUNNER_TEMP}/topo-cli-install" \
-                -DCMAKE_PREFIX_PATH="${RUNNER_TEMP}/topo-install" \
+                -DCMAKE_PREFIX_PATH="${RUNNER_TEMP}/topo-install;${RUNNER_TEMP}/lang-ts-install" \
                 -DCMAKE_TOOLCHAIN_FILE="${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake" \
                 -DTOPO_CLI_ENABLE_PROFILE=OFF
           cmake --build "${RUNNER_TEMP}/topo-cli-build" --target install
@@ -431,9 +450,13 @@ jobs:
             echo "::error::topo-v8-tools missing (visibility-transform absent) — contract-pass transforms would silently skip"
             exit 1
           fi
+          # lang-ts-install must be on the prefix too: topo-cli was built
+          # with the TypeScript plugin, so its installed config
+          # find_dependency()s topo-lang-typescript — without it the QUIET
+          # find_package(topo-cli) fails and both gated suites self-skip.
           cmake -S . -B build -G Ninja \
               -DCMAKE_BUILD_TYPE=Release \
-              -DCMAKE_PREFIX_PATH="${RUNNER_TEMP}/topo-install;${RUNNER_TEMP}/topo-cli-install" \
+              -DCMAKE_PREFIX_PATH="${RUNNER_TEMP}/topo-install;${RUNNER_TEMP}/topo-cli-install;${RUNNER_TEMP}/lang-ts-install" \
               -DCMAKE_TOOLCHAIN_FILE="${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake" \
               -DTOPO_LANG_TYPESCRIPT_BUILD_TESTS=ON \
               -DTOPO_V8_TOOLS_DIR="${RUNNER_TEMP}/topo-v8-tools" \
@@ -441,6 +464,20 @@ jobs:
 
       - name: Build
         run: cmake --build build
+
+      - name: npm install contract-pass transforms (build-dir copies)
+        # Same contract as build-and-test's step: the POST_BUILD stages each
+        # transform into build/topo-build/<tool>/ without running npm.
+        # Populate node_modules/typescript so the functional suite's
+        # transform fixtures (spawned through topo-build →
+        # topo-build-typescript) can import 'typescript' at ctest time.
+        run: |
+          set -euo pipefail
+          for tool in visibility-transform containment-guard-transform stage-assert-transform; do
+            dir="build/topo-build/${tool}"
+            test -f "${dir}/package.json" || { echo "::error::expected staged transform package.json missing: ${dir}/package.json"; exit 1; }
+            ( cd "${dir}" && npm install --omit=dev --no-audit --no-fund )
+          done
 
       - name: npm install topo-extract-typescript (build-dir copy)
         # The staged extractor tool body needs node_modules/typescript so
@@ -459,6 +496,15 @@ jobs:
           # checker suite was never registered, the job FAILS rather than
           # greening on zero tests.
           ctest --test-dir build -L checker --output-on-failure --timeout 180 --no-tests=error
+
+      - name: Run functional-e2e suite
+        run: |
+          # Drives the real topo-build CLI funnel (backend dispatch,
+          # integrated-check exit codes, transform/sidecar/runtime-witness
+          # pipeline). --no-tests=error: if the dual gate failed to resolve
+          # the topo-cli executables the suite never registered — FAIL
+          # rather than green on zero tests.
+          ctest --test-dir build -L functional --output-on-failure --timeout 120 --no-tests=error
 
       # The checker suite passes ctest even when its gtest cases
       # GTEST_SKIP() (typescript-language-server or the staged extractor
