@@ -171,7 +171,8 @@ int main(int argc, char* argv[]) {
     std::vector<std::string> sourceFiles;
     for (const auto& src : req.sources) {
         fs::path srcPath(src);
-        if (fs::is_directory(srcPath)) {
+        std::error_code dirEc;
+        if (fs::is_directory(srcPath, dirEc)) {
             // Non-throwing iteration (error_code construction + increment,
             // the same pattern as the checker analysis provider): an
             // unreadable or vanishing entry degrades to a diagnostic,
@@ -199,6 +200,9 @@ int main(int argc, char* argv[]) {
                           << srcPath.string() << ": " << iterEc.message()
                           << "\n";
             }
+        } else if (dirEc) {
+            std::cerr << "warning: cannot stat source entry "
+                      << srcPath.string() << ": " << dirEc.message() << "\n";
         } else if (isTypeScriptExtension(srcPath) &&
                    !pathContainsNodeModules(srcPath)) {
             sourceFiles.push_back(srcPath.string());
