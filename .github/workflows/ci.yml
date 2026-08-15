@@ -308,7 +308,7 @@ jobs:
       # global install beside it.
       - name: Install typescript-language-server (TsServerBridge host server)
         run: |
-          npm i -g typescript-language-server typescript
+          npm i -g typescript-language-server typescript@5
           command -v typescript-language-server
           typescript-language-server --version
 
