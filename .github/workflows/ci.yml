@@ -508,28 +508,14 @@ jobs:
 
       # The checker suite passes ctest even when its gtest cases
       # GTEST_SKIP() (typescript-language-server or the staged extractor
-      # absent) — "Passed" can mean "every L2 case skipped". Re-run the
-      # binary and FAIL on any skip or zero passes, converting a silent
-      # all-skip into a hard failure (skip != pass).
-      - name: Assert L2 deep containment ran (skip != pass)
+      # absent) — "Passed" can mean "every L2 case skipped". The shared
+      # assert-live-cases.sh keeps the aggregate guard (strict: zero
+      # skips, ≥1 pass) AND requires each NAMED tsserver-driven L2 case in
+      # the PASSED set — a renamed/filtered case fails with distinct
+      # SKIPPED vs ABSENT diagnostics instead of vanishing green.
+      - name: Assert L2 deep containment ran (named cases, skip != pass)
         run: |
-          # set +e: handle errors explicitly — a grep no-match inside a
-          # command substitution would otherwise abort the step silently.
-          set +e
-          exe=$(find build -type f -name "topo-lang-typescript-check-tests" 2>/dev/null | head -1)
-          if [ -z "${exe}" ]; then
-            echo "::error::topo-lang-typescript-check-tests not built — topo-cli prefix missing at configure time?"; exit 1
-          fi
-          out=$("${exe}" 2>&1); rc=$?
-          printf '%s\n' "${out}" | tail -20
-          passed=$(printf '%s\n' "${out}" | grep -oE '\[  PASSED  \] [0-9]+ test' | grep -oE '[0-9]+' | tail -1)
-          skipped=$(printf '%s\n' "${out}" | grep -oE '\[  SKIPPED \] [0-9]+ test' | grep -oE '[0-9]+' | tail -1)
-          [ -z "${passed}" ] && passed=0
-          [ -z "${skipped}" ] && skipped=0
-          echo "topo-lang-typescript-check-tests: ${passed} PASSED, ${skipped} skipped (exit ${rc})"
-          if [ "${rc}" -ne 0 ]; then
-            echo "::error::checker-e2e suite failed (exit ${rc})"; exit 1
-          fi
-          if [ "${skipped}" -gt 0 ] || [ "${passed}" -lt 1 ]; then
-            echo "::error::L2 deep containment (or the AST extractor e2e) did not RUN — typescript-language-server / staged extractor missing → GTEST_SKIP (skip != pass)"; exit 1
-          fi
+          bash .github/scripts/assert-live-cases.sh strict topo-lang-typescript-check-tests \
+            TypeScriptContainmentL2.EvalDeepDetected \
+            TypeScriptContainmentL2.NewFunctionDeepDetected
+          bash .github/scripts/assert-live-cases.sh strict topo-lang-typescript-functional-tests
