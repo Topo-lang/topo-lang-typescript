@@ -82,14 +82,62 @@ endif()
 # and self-skips with a STATUS message otherwise.
 add_subdirectory(check-e2e)
 
-# --- Functional E2E tests (skipped in standalone) ---
-# Requires the topo-build CLI (shipped by topo-core, not in topo-core's
-# install set today) and the in-tree E2eHarness.cpp source. Neither is
-# reachable from a standalone build, so the suite is skipped here and
-# is expected to re-run from the monorepo / from topo-cli once that
-# repo lifts.
-message(STATUS "topo-lang-typescript tests: functional-e2e suite is gated off "
-               "in standalone mode (requires topo-build CLI + E2eHarness.cpp).")
+# --- Functional E2E tests ---
+# Drives the real `topo-build` CLI against the fixtures/e2e projects:
+# backend dispatch, integrated-check exit codes + diagnostics, and the
+# transform / sidecar / runtime-witness pipeline. topo-build/topo-check
+# are topo-cli targets — a package DOWNSTREAM of this one — so the same
+# two paths as the checker-e2e suite apply: in a super-build
+# (NOT PROJECT_IS_TOP_LEVEL) the bare sibling targets resolve at
+# generate time even though topo-cli configures later; standalone, an
+# installed topo-cli on CMAKE_PREFIX_PATH provides the imported
+# topo::cli:: executables (the verify-l2 CI job's path). The transform
+# fixtures additionally need the staged Node contract-pass tools, so the
+# suite shares the ts-tool-smoke gate (TOPO_LANG_TS_CONTRACT_PASSES_STAGED).
+set(_func_topo_build "")
+set(_func_topo_check "")
+if(NOT PROJECT_IS_TOP_LEVEL)
+    set(_func_topo_build topo-build)
+    set(_func_topo_check topo-check)
+else()
+    if(NOT TARGET topo::cli::topo-build)
+        find_package(topo-cli CONFIG QUIET)
+    endif()
+    if(TARGET topo::cli::topo-build)
+        set(_func_topo_build topo::cli::topo-build)
+        set(_func_topo_check topo::cli::topo-check)
+    endif()
+endif()
+if(_func_topo_build AND TOPO_LANG_TS_CONTRACT_PASSES_STAGED AND TARGET topo-build-typescript)
+    add_executable(topo-lang-typescript-functional-tests
+        e2e/TypeScriptFunctionalTests.cpp
+    )
+    target_link_libraries(topo-lang-typescript-functional-tests PRIVATE
+        topo::core::TopoPlatform
+        nlohmann_json::nlohmann_json
+        GTest::gtest_main
+    )
+    # TOPO_FUNC_E2E_TOOL_DIRS is ';'-separated (split at runtime): the
+    # fixture prepends both dirs to PATH so topo-build resolves its
+    # backend (topo-build-typescript) and the integrated-check topo-check
+    # by bare name. $<SEMICOLON> keeps the list intact through the
+    # COMPILE_DEFINITIONS property.
+    target_compile_definitions(topo-lang-typescript-functional-tests PRIVATE
+        TOPO_BUILD_EXE="$<TARGET_FILE:${_func_topo_build}>"
+        TOPO_TS_E2E_FIXTURES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures/e2e"
+        TOPO_FUNC_E2E_TOOL_DIRS="$<TARGET_FILE_DIR:topo-build-typescript>$<SEMICOLON>$<TARGET_FILE_DIR:${_func_topo_check}>"
+    )
+    add_dependencies(topo-lang-typescript-functional-tests topo-build-typescript)
+    topo_set_compiler_flags(topo-lang-typescript-functional-tests)
+    gtest_discover_tests(topo-lang-typescript-functional-tests
+        DISCOVERY_TIMEOUT 30
+        PROPERTIES LABELS "e2e\;functional\;lang-typescript" TIMEOUT 120)
+else()
+    message(STATUS "topo-lang-typescript tests: functional-e2e suite is gated off "
+                   "(needs the topo-build CLI — super-build sibling or installed "
+                   "topo-cli on CMAKE_PREFIX_PATH — plus staged contract-pass "
+                   "transforms).")
+endif()
 
 # --- TS transform tool Node smoke tests ---
 # Each tool ships its own smoke.test.mjs that drives the production tool via

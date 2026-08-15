@@ -2,30 +2,90 @@
 // projects (which dispatches to the topo-build-typescript subprocess) and
 // assert the final exit code + stderr contents.
 
-#include "E2eHarness.h"
-
+#include "topo/Platform/Platform.h"
 #include "topo/Platform/Process.h"
 
 #include <nlohmann/json.hpp>
 
-#include <cstring>
+#include <gtest/gtest.h>
+
+#include <cstdlib>
+#include <filesystem>
 #include <fstream>
 #include <sstream>
+#include <string>
+#include <vector>
+
+namespace fs = std::filesystem;
 
 namespace topo::test::e2e {
 
-class TypeScriptFunctional : public E2eFixture {
+namespace {
+
+// One-time, in-process PATH prepend of the tool directories handed in by
+// CMake (TOPO_FUNC_E2E_TOOL_DIRS, ';'-separated): topo-build resolves both
+// its backend (topo-build-typescript) and the integrated-check topo-check
+// by bare name from PATH. setenv/_putenv_s is process-global, so the test
+// process and its whole subprocess chain inherit it — the same pattern the
+// topo-jvm e2e harness uses for its backend tool dirs.
+void prependToolDirsToPathOnce() {
+    static bool done = false;
+    if (done) return;
+    done = true;
+#ifdef TOPO_FUNC_E2E_TOOL_DIRS
+    const std::string dirs = TOPO_FUNC_E2E_TOOL_DIRS;
+#else
+    const std::string dirs;
+#endif
+    if (dirs.empty()) return;
+    const std::string sep(platform::PathSeparator);
+    std::string prefix;
+    size_t pos = 0;
+    while (pos < dirs.size()) {
+        size_t end = dirs.find(';', pos);
+        if (end == std::string::npos) end = dirs.size();
+        const std::string dir = dirs.substr(pos, end - pos);
+        if (!dir.empty()) {
+            if (!prefix.empty()) prefix += sep;
+            prefix += dir;
+        }
+        pos = end + 1;
+    }
+    if (prefix.empty()) return;
+    const char* oldPath = std::getenv("PATH");
+    std::string newPath = prefix;
+    if (oldPath && *oldPath) {
+        newPath += sep;
+        newPath += oldPath;
+    }
+#ifdef _WIN32
+    _putenv_s("PATH", newPath.c_str());
+#else
+    setenv("PATH", newPath.c_str(), 1);
+#endif
+}
+
+} // namespace
+
+class TypeScriptFunctional : public ::testing::Test {
 protected:
+    fs::path topoBuildExe_;
     fs::path tsFixturesDir_;
 
     void SetUp() override {
-        E2eFixture::SetUp();
+#ifdef TOPO_BUILD_EXE
+        topoBuildExe_ = fs::path(TOPO_BUILD_EXE);
+#endif
+        ASSERT_FALSE(topoBuildExe_.empty()) << "TOPO_BUILD_EXE not set";
+        ASSERT_TRUE(fs::exists(topoBuildExe_))
+            << "topo-build not found: " << topoBuildExe_;
 #ifdef TOPO_TS_E2E_FIXTURES_DIR
         tsFixturesDir_ = fs::path(TOPO_TS_E2E_FIXTURES_DIR);
 #endif
         ASSERT_FALSE(tsFixturesDir_.empty()) << "TOPO_TS_E2E_FIXTURES_DIR not set";
         ASSERT_TRUE(fs::exists(tsFixturesDir_))
             << "TypeScript fixtures dir not found: " << tsFixturesDir_;
+        prependToolDirsToPathOnce();
     }
 
     struct FullResult {
@@ -37,6 +97,14 @@ protected:
     FullResult topoBuildTs(const std::string& projectName,
                            const std::vector<std::string>& extraArgs = {}) {
         fs::path projDir = tsFixturesDir_ / projectName;
+        // Fresh-run determinism: a warm check cache replaces diagnostics
+        // with "Result: FAIL (cached)" and the build cache short-circuits
+        // the backend — clear both so every spawn exercises the full
+        // funnel. (.topo-check-cache is a file at the project root, NOT
+        // inside .topo-cache/.)
+        std::error_code ec;
+        fs::remove_all(projDir / ".topo-cache", ec);
+        fs::remove_all(projDir / ".topo-check-cache", ec);
         std::string exe = topoBuildExe_.generic_string();
         std::string workDir = projDir.generic_string();
         auto r = platform::runProcessCapture(exe, extraArgs, workDir);

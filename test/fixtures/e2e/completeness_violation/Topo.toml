@@ -7,6 +7,12 @@ root = "topo/main.topo"
 [build]
 language = "typescript"
 sources = ["src"]
+# output is required by topo-build's CLI validation, which runs BEFORE the
+# integrated check — without it the build fails at "-o <output> is
+# required" and the violation test would pass without the check ever
+# running (vacuously).
+output = "build/out"
+output_type = "exe"
 
 [builder]
 mode = "dev"
