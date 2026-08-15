@@ -117,15 +117,17 @@ if(_func_topo_build AND TOPO_LANG_TS_CONTRACT_PASSES_STAGED AND TARGET topo-buil
         nlohmann_json::nlohmann_json
         GTest::gtest_main
     )
-    # TOPO_FUNC_E2E_TOOL_DIRS is ';'-separated (split at runtime): the
+    # TOPO_FUNC_E2E_TOOL_DIRS is '|'-separated (split at runtime): the
     # fixture prepends both dirs to PATH so topo-build resolves its
     # backend (topo-build-typescript) and the integrated-check topo-check
-    # by bare name. $<SEMICOLON> keeps the list intact through the
-    # COMPILE_DEFINITIONS property.
+    # by bare name. The separator is '|' because a ';' in a quoted
+    # compile-definition value is split into extra -D tokens at generate
+    # time, breaking quote pairing in the compiler command line
+    # ($<SEMICOLON> cannot protect a value carrying embedded quotes).
     target_compile_definitions(topo-lang-typescript-functional-tests PRIVATE
         TOPO_BUILD_EXE="$<TARGET_FILE:${_func_topo_build}>"
         TOPO_TS_E2E_FIXTURES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures/e2e"
-        TOPO_FUNC_E2E_TOOL_DIRS="$<TARGET_FILE_DIR:topo-build-typescript>$<SEMICOLON>$<TARGET_FILE_DIR:${_func_topo_check}>"
+        TOPO_FUNC_E2E_TOOL_DIRS="$<TARGET_FILE_DIR:topo-build-typescript>|$<TARGET_FILE_DIR:${_func_topo_check}>"
     )
     add_dependencies(topo-lang-typescript-functional-tests topo-build-typescript)
     topo_set_compiler_flags(topo-lang-typescript-functional-tests)

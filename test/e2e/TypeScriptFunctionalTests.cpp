@@ -23,7 +23,7 @@ namespace topo::test::e2e {
 namespace {
 
 // One-time, in-process PATH prepend of the tool directories handed in by
-// CMake (TOPO_FUNC_E2E_TOOL_DIRS, ';'-separated): topo-build resolves both
+// CMake (TOPO_FUNC_E2E_TOOL_DIRS, '|'-separated): topo-build resolves both
 // its backend (topo-build-typescript) and the integrated-check topo-check
 // by bare name from PATH. setenv/_putenv_s is process-global, so the test
 // process and its whole subprocess chain inherit it — the same pattern the
@@ -42,7 +42,7 @@ void prependToolDirsToPathOnce() {
     std::string prefix;
     size_t pos = 0;
     while (pos < dirs.size()) {
-        size_t end = dirs.find(';', pos);
+        size_t end = dirs.find('|', pos);
         if (end == std::string::npos) end = dirs.size();
         const std::string dir = dirs.substr(pos, end - pos);
         if (!dir.empty()) {
